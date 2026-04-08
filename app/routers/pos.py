@@ -238,8 +238,9 @@ async def list_bills(
     bills = []
     for s in sessions:
         total = sum(
-            sum(float(i.line_total or 0) for i in o.items)
+            float(i.unit_price or 0) * int(i.quantity or 1)
             for o in s.orders
+            for i in o.items
         )
         items_count = sum(len(o.items) for o in s.orders)
         bills.append({
