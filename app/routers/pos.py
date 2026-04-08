@@ -461,3 +461,28 @@ async def split_bill(body: dict, db: AsyncSession = Depends(get_db)):
         "items_moved":     len(items),
         "split_total":     total,
     }
+
+
+@router.get("/fix-db")
+async def fix_db():
+    """Fix missing columns directly"""
+    import aiosqlite, os
+    db_path = "lansook.db"
+    results = []
+    sqls = [
+        "ALTER TABLE table_sessions ADD COLUMN customer_name TEXT",
+        "ALTER TABLE orders ADD COLUMN discount_amt REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN vat_amt REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN subtotal REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'cash'",
+        "ALTER TABLE orders ADD COLUMN paid_at DATETIME",
+    ]
+    async with aiosqlite.connect(db_path) as db:
+        for sql in sqls:
+            try:
+                await db.execute(sql)
+                await db.commit()
+                results.append("OK: " + sql[:50])
+            except Exception as e:
+                results.append("SKIP: " + str(e)[:50])
+    return {"results": results}
