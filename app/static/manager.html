@@ -972,6 +972,7 @@ function renderSO2(){
   document.getElementById('so2-total').textContent=tot.toFixed(0);
   document.getElementById('so2-count').textContent=SO_CART2.reduce(function(s,e){return s+e.qty;},0);
 }
+}
 
 function setSO2Cat(id){ SO_CAT2=id==='null'?null:parseInt(id); renderSO2(); }
 
