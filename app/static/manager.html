@@ -445,7 +445,7 @@ async function showQR(tid){
     h+='<div style="font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:12px">'+u+'</div>';
     h+='<div style="display:flex;gap:8px">';
     h+='<button class="bs" onclick="navigator.clipboard.writeText(\''+u+'\');showToast(\'คัดลอกแล้ว\')">📋 คัดลอก</button>';
-    h+='<button class="bs" onclick="printQR(\''+u+'\')">🖨️ ปริ้น QR</button>';
+  h+='<p>'+u+'</p><button onclick="window.print()">Print</button></body></html>';
     h+='<button class="bp" onclick="closeModal(\'mo-tbl\')">ปิด</button>';
     h+='</div></div>';
     document.getElementById('mt-body').innerHTML=h;
