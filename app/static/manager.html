@@ -356,6 +356,7 @@ async function clickT(id){
   if(t.status==='available') h+='<button class="bp" onclick="openTblFrom('+t.id+')">🔓 เปิดโต๊ะ</button>';
   if(t.status==='occupied'){
     h+='<button class="bp" onclick="showQR('+t.id+')">📱 แสดง QR</button>';
+    h+='<button class="bp" style="background:var(--purple)" onclick="openStaffOrderFromTable('+t.id+')">🛒 สั่งอาหาร</button>';
     h+='<button class="bp" onclick="viewTBill('+t.id+')">🧾 ดูบิล</button>';
     h+='<button class="bp" style="background:var(--blue)" onclick="openMove('+t.id+')">🔀 ย้ายโต๊ะ</button>';
     h+='<button class="bp" style="background:var(--amber)" onclick="setStatus('+t.id+',\'cleaning\')">🧹 เก็บโต๊ะ</button>';
@@ -401,7 +402,26 @@ function printQR(u){
   h+='img{width:250px;height:250px}@media print{button{display:none}}</style>';
   h+='</head><body><h2>ลานสุข</h2><p>สแกนเพื่อสั่งอาหาร</p>';
   h+='<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(u)+'">';
-  h+='<p>'+u+'</p><button onclick="window.print()">🖨️ ปริ้น</button></body></html>';
+  h+='<p>'+u+'</p><button onclick="window.print()">🖨️ ปริ้น</button>
+<div class="mo" id="mo-so2">
+  <div class="md" style="max-width:520px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="fd" style="font-size:17px" id="so2-title">🛒 สั่งอาหาร</div>
+      <button onclick="closeModal('mo-so2')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="so2-cats" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px"></div>
+    <div id="so2-menu" style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto;margin-bottom:12px"></div>
+    <div style="background:var(--warm);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:13px">รายการ <span id="so2-count">0</span> อย่าง</span>
+      <span style="font-family:Mitr,sans-serif;font-size:17px;color:var(--leaf)">฿<span id="so2-total">0</span></span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="bs" onclick="closeModal('mo-so2')">ยกเลิก</button>
+      <button class="bp" onclick="submitSO2()">✅ ส่งออเดอร์</button>
+    </div>
+  </div>
+</div>
+</body></html>';
   w.document.write(h);
   w.document.close();
   setTimeout(function(){w.print();},500);
@@ -901,7 +921,92 @@ function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.c
 function updClk(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});}
 setInterval(updClk,1000);
 setInterval(function(){fT().then(function(){renderFloor();});},30000);
+
+async function openStaffOrderFromTable(tid){
+  closeModal('mo-tbl');
+  // หา session ที่เปิดอยู่
+  try{
+    var r = await fetch(API+'/api/pos/tables/'+tid+'/session');
+    var s = await r.json();
+    var t = T.find(function(x){return x.id===tid;});
+    openStaffOrder2(s.id, s.qr_token, t?t.table_number:tid, s.customer_name||'');
+  }catch(e){ showToast('เกิดข้อผิดพลาด'); }
+}
+
+var SO_SID=null, SO_TOKEN=null, SO_CART2=[], SO_CAT2=null;
+
+function openStaffOrder2(sid, token, tableNum, customerName){
+  SO_SID=sid; SO_TOKEN=token; SO_CART2=[]; SO_CAT2=null;
+  document.getElementById('so2-title').textContent='🛒 สั่งอาหาร — โต๊ะ '+tableNum+(customerName?' ('+customerName+')':'');
+  renderSO2();
+  openModal('mo-so2');
+}
+
+function renderSO2(){
+  // Category tabs
+  var cats=[{id:null,name:'ทั้งหมด'}].concat(C);
+  document.getElementById('so2-cats').innerHTML=cats.map(function(c){
+    return '<button onclick="setSO2Cat('+(c.id===null?'null':c.id)+')" style="white-space:nowrap;padding:5px 12px;border-radius:999px;font-size:12px;cursor:pointer;flex-shrink:0;border:1.5px solid '+(SO_CAT2===c.id?'var(--bark)':'#ddd')+';background:'+(SO_CAT2===c.id?'var(--bark)':'white')+';color:'+(SO_CAT2===c.id?'white':'var(--muted)')+'">'+c.name+'</button>';
+  }).join('');
+
+  // Menu
+  document.getElementById('so2-menu').innerHTML=items.map(function(item){
+    var inCart=SO_CART2.find(function(e){return e.id===item.id;});
+    var qty=inCart?inCart.qty:0;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:white;border-radius:10px;border:1px solid '+(qty>0?'var(--leaf)':'var(--border)')+'">'+
+      '<div style="flex:1"><div style="font-weight:600;font-size:13px">'+item.name+'</div></div>'+
+      '<div style="font-family:Mitr,sans-serif;color:var(--amber);font-size:13px">฿'+parseFloat(item.price).toFixed(0)+'</div>'+
+      '<div style="display:flex;align-items:center;gap:6px">'+
+      '<button onclick="so2Qty('+item.id+',-1)" style="width:28px;height:28px;border-radius:50%;background:'+(qty>0?'var(--red)':'#eee')+';color:'+(qty>0?'white':'#999')+';border:none;cursor:pointer;font-size:16px">−</button>'+
+      '<span style="font-family:Mitr,sans-serif;font-size:14px;min-width:16px;text-align:center">'+qty+'</span>'+
+      '<button onclick="so2Qty('+item.id+',1)" style="width:28px;height:28px;border-radius:50%;background:var(--leaf);color:white;border:none;cursor:pointer;font-size:16px">+</button>'+
+      '</div></div>';
+  }).join('');
+
+  // Cart
+  var tot=SO_CART2.reduce(function(s,e){return s+parseFloat(e.price)*e.qty;},0);
+  document.getElementById('so2-total').textContent=tot.toFixed(0);
+  document.getElementById('so2-count').textContent=SO_CART2.reduce(function(s,e){return s+e.qty;},0);
+}
+
+function setSO2Cat(id){ SO_CAT2=id==='null'?null:parseInt(id); renderSO2(); }
+
+function so2Qty(itemId, delta){
+  var item=M.find(function(m){return m.id===itemId;});
+  var idx=SO_CART2.findIndex(function(e){return e.id===itemId;});
+  if(idx>=0){ SO_CART2[idx].qty+=delta; if(SO_CART2[idx].qty<=0)SO_CART2.splice(idx,1); }
+  else if(delta>0){ SO_CART2.push({id:item.id,name:item.name,price:item.price,qty:1}); }
+  renderSO2();
+}
+
+async function submitSO2(){
+  var items=SO_CART2.map(function(e){return {menu_item_id:e.id,quantity:e.qty,modifiers:[]};});
+  try{
+    var r=await fetch(API+'/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_token:SO_TOKEN,items:items})});
+    closeModal('mo-so2');
+    showToast('✅ ส่งออเดอร์สำเร็จ!');
+  }catch(e){ showToast('เกิดข้อผิดพลาด'); }
+}
 updClk();init();
 </script>
+
+<div class="mo" id="mo-so2">
+  <div class="md" style="max-width:520px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="fd" style="font-size:17px" id="so2-title">🛒 สั่งอาหาร</div>
+      <button onclick="closeModal('mo-so2')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="so2-cats" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px"></div>
+    <div id="so2-menu" style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto;margin-bottom:12px"></div>
+    <div style="background:var(--warm);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:13px">รายการ <span id="so2-count">0</span> อย่าง</span>
+      <span style="font-family:Mitr,sans-serif;font-size:17px;color:var(--leaf)">฿<span id="so2-total">0</span></span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="bs" onclick="closeModal('mo-so2')">ยกเลิก</button>
+      <button class="bp" onclick="submitSO2()">✅ ส่งออเดอร์</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
