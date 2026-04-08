@@ -513,7 +513,9 @@ async function viewBill(sid){
   var r=await fetch(API+'/api/orders/session/'+sid);
   var o=await r.json();
   var b=B.find(function(x){return x.session_id===sid;});
-  var tot=o.reduce(function(s,x){return s+parseFloat(x.total||0);},0);
+  var tot=o.reduce(function(s,x){
+    return s+x.items.reduce(function(s2,i){return s2+parseFloat(i.unit_price||0)*parseInt(i.quantity||1);},0);
+  },0);
   var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">';
   h+='<div class="fd" style="font-size:17px">🧾 '+(b?b.customer_name:'บิล')+'</div>';
   h+='<button onclick="closeModal(\'mo-bill\')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button></div>';
