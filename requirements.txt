@@ -7,3 +7,4 @@ pydantic-settings==2.6.1
 pydantic_core==2.41.5
 python-jose==3.3.0
 uvicorn==0.32.1
+aiosqlite
