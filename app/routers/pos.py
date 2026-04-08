@@ -221,11 +221,13 @@ async def list_bills(
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
     from app.models import Order, OrderItem
+    from app.models import OrderItemModifier
     q = (
         select(TableSession)
         .options(
             selectinload(TableSession.orders)
             .selectinload(Order.items)
+            .selectinload(OrderItem.modifiers)
         )
         .order_by(TableSession.opened_at.desc())
     )
