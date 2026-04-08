@@ -235,7 +235,10 @@ async def list_bills(
     sessions = result.scalars().all()
     bills = []
     for s in sessions:
-        total = sum(float(o.total or 0) for o in s.orders)
+        total = sum(
+            sum(float(i.line_total or 0) for i in o.items)
+            for o in s.orders
+        )
         items_count = sum(len(o.items) for o in s.orders)
         bills.append({
             "session_id":    s.id,
@@ -439,12 +442,8 @@ async def split_bill(body: dict, db: AsyncSession = Depends(get_db)):
 
     # สร้าง order ใหม่ใน session ใหม่
     new_order = Order(
-        session_id     = new_session.id,
-        status         = OrderStatus.CONFIRMED,
-        subtotal       = 0,
-        discount_amt   = 0,
-        vat_amt        = 0,
-        total          = 0,
+        session_id   = new_session.id,
+        status       = OrderStatus.CONFIRMED,
     )
     db.add(new_order)
     await db.flush()

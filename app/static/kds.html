@@ -409,7 +409,7 @@ function itemRow(item) {
     <div class="item-row">
       <div class="qty-badge">${item.quantity}</div>
       <div style="flex:1">
-        <div style="font-weight:600;font-size:15px">เมนู #${item.menu_item_id}</div>
+        <div style="font-weight:600;font-size:15px">${item.name||'เมนู #'+item.menu_item_id}</div>
         ${item.modifiers?.length ? `
           <div style="font-size:12px;color:var(--muted);margin-top:2px">
             ${item.modifiers.map(m=>`<span style="background:var(--bg3);border-radius:4px;padding:1px 6px;margin-right:4px">${m.name}</span>`).join('')}

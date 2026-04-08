@@ -151,11 +151,18 @@ async def get_kds_orders(
         .order_by(OrderItem.id)
     )
     items = result.scalars().all()
+    from app.models import MenuItem
+    from sqlalchemy import select as sa_select
+    menu_ids = list(set(i.menu_item_id for i in items))
+    menu_result = await db.execute(sa_select(MenuItem).where(MenuItem.id.in_(menu_ids)))
+    menu_map = {m.id: m.name for m in menu_result.scalars().all()}
+
     return [
         {
             "order_item_id": i.id,
             "order_id":      i.order_id,
             "menu_item_id":  i.menu_item_id,
+            "name":          menu_map.get(i.menu_item_id, f"เมนู #{i.menu_item_id}"),
             "quantity":      i.quantity,
             "note":          i.note,
             "status":        i.status,
