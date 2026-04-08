@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ลานสุข — Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{--cream:#FDF6EC;--warm:#F5E6C8;--bark:#5C3D1E;--bark2:#7A5230;--leaf:#3A6B35;--leaf2:#5C9E55;--amber:#E8913A;--red:#C0392B;--blue:#2563EB;--gold:#C9A227;--purple:#7C3AED;--text:#2C1810;--muted:#8B6F5E;--border:#E5D5C0;}
+  *{box-sizing:border-box;}
+  body{font-family:'Sarabun',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+  .font-display{font-family:'Mitr',sans-serif;}
+  .sidebar{width:210px;flex-shrink:0;background:var(--bark);min-height:100vh;display:flex;flex-direction:column;}
+  .sidebar-item{padding:10px 16px;color:rgba(255,255,255,.7);cursor:pointer;border-radius:10px;margin:2px 6px;font-size:13px;display:flex;align-items:center;gap:8px;transition:all .2s;}
+  .sidebar-item:hover{background:rgba(255,255,255,.1);color:white;}
+  .sidebar-item.active{background:rgba(255,255,255,.18);color:white;font-weight:600;}
+  .table-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px solid transparent;transition:all .2s;position:relative;user-select:none;}
+  .table-cell:hover{transform:scale(1.06);z-index:2;}
+  .table-cell.available{background:#E8F5E9;border-color:#A5D6A7;color:#2E7D32;}
+  .table-cell.occupied{background:#FFF3E0;border-color:#FFCC80;color:#E65100;}
+  .table-cell.cleaning{background:#F3E5F5;border-color:#CE93D8;color:#6A1B9A;}
+  .table-cell.reserved{background:#E3F2FD;border-color:#90CAF9;color:#1565C0;}
+  .table-cell.vip{background:linear-gradient(135deg,#FFF8E1,#FFF3CD);border-color:var(--gold);color:#7B5E00;}
+  .vip-canvas{display:grid;gap:5px;background:white;border-radius:14px;padding:14px;border:2px dashed var(--border);min-height:280px;}
+  .vip-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px solid transparent;font-family:'Mitr',sans-serif;font-size:12px;transition:all .15s;user-select:none;}
+  .vip-cell.empty{background:#fafaf8;border:2px dashed #ddd;color:#ccc;}
+  .vip-cell.empty:hover{background:#f0ede8;border-color:#bbb;}
+  .vip-cell.table{background:linear-gradient(135deg,#FFF8E1,#FFF3CD);border-color:var(--gold);color:#7B5E00;}
+  .vip-cell.sofa{background:linear-gradient(135deg,#EDE7F6,#D1C4E9);border-color:var(--purple);color:#4A1080;}
+  .vip-cell.stage{background:linear-gradient(135deg,#FCE4EC,#F8BBD0);border-color:#E91E63;color:#880E4F;}
+  .vip-cell.bar{background:linear-gradient(135deg,#E3F2FD,#BBDEFB);border-color:var(--blue);color:#0D47A1;}
+  .vip-cell.selected-cell{box-shadow:0 0 0 3px var(--amber);transform:scale(1.08);}
+  .tool-btn{padding:7px 10px;border-radius:8px;font-size:11px;cursor:pointer;border:2px solid transparent;transition:all .15s;text-align:center;}
+  .tool-btn.active-tool{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(44,24,16,.5);z-index:100;display:none;align-items:center;justify-content:center;padding:16px;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--cream);border-radius:20px;padding:22px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+  .stat-card{background:white;border-radius:14px;padding:14px;border:1px solid var(--border);}
+  .stat-num{font-family:'Mitr',sans-serif;font-size:26px;font-weight:600;}
+  .btn-primary{background:var(--leaf);color:white;border-radius:10px;padding:9px 16px;font-family:'Mitr',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;border:none;width:100%;}
+  .btn-primary:hover{background:var(--leaf2);}
+  .btn-danger{background:var(--red);color:white;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;border:none;}
+  .btn-secondary{background:white;color:var(--text);border:1.5px solid var(--border);border-radius:10px;padding:9px 16px;font-size:13px;cursor:pointer;}
+  .input{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-family:'Sarabun',sans-serif;outline:none;background:white;}
+  .input:focus{border-color:var(--bark2);}
+  .label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;}
+  .tab-btn{padding:6px 12px;border-radius:8px;font-family:'Mitr',sans-serif;font-size:12px;cursor:pointer;color:var(--muted);background:transparent;border:none;}
+  .tab-btn.active{background:var(--bark);color:white;}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600;}
+  .badge-paid{background:#dcfce7;color:var(--leaf);}
+  .badge-unpaid{background:#fee2e2;color:var(--red);}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--bark);color:white;padding:12px 20px;border-radius:12px;font-size:14px;z-index:200;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;}
+  .toast.show{opacity:1;transform:none;}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div style="display:flex;min-height:100vh">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div style="padding:18px 16px 8px">
+      <div class="font-display" style="color:white;font-size:18px">ลานสุข 🌿</div>
+      <div style="color:rgba(255,255,255,.5);font-size:10px;margin-top:2px">Manager Dashboard</div>
+    </div>
+    <div style="padding:6px 0;flex:1">
+      <div class="sidebar-item active" onclick="showPage('floor')"  id="nav-floor">🗺️ Floor Plan</div>
+      <div class="sidebar-item"        onclick="showPage('bills')"  id="nav-bills">🧾 บิล & ชำระเงิน</div>
+      <div class="sidebar-item"        onclick="showPage('tables')" id="nav-tables">🪑 จัดการโต๊ะ</div>
+      <div class="sidebar-item"        onclick="showPage('menu')"   id="nav-menu">🍽️ จัดการเมนู</div>
+      <div class="sidebar-item"        onclick="showPage('staff')"  id="nav-staff">👥 พนักงาน</div>
+      <div class="sidebar-item"        onclick="showPage('report')" id="nav-report">📊 รายงาน</div>
+    </div>
+    <div style="padding:12px;border-top:1px solid rgba(255,255,255,.1)">
+      <div style="color:rgba(255,255,255,.5);font-size:10px;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">สถานะโต๊ะ</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="display:flex;justify-content:space-between;color:white;font-size:12px"><span>🟢 ว่าง</span><span class="font-display" id="sb-available">—</span></div>
+        <div style="display:flex;justify-content:space-between;color:white;font-size:12px"><span>🔴 มีลูกค้า</span><span class="font-display" id="sb-occupied">—</span></div>
+        <div style="display:flex;justify-content:space-between;color:white;font-size:12px"><span>🟡 เก็บโต๊ะ</span><span class="font-display" id="sb-cleaning">—</span></div>
+      </div>
+    </div>
+    <div style="padding:8px 16px;color:rgba(255,255,255,.4);font-size:11px;text-align:center" id="sidebar-clock"></div>
+  </div>
+
+  <!-- Main -->
+  <div style="flex:1;overflow:auto">
+
+    <!-- FLOOR PLAN -->
+    <div id="page-floor" style="padding:20px">
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+
+        <!-- Left: Main floor -->
+        <div style="flex:1;min-width:280px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div class="font-display" style="font-size:17px;color:var(--bark)">🗺️ แผนผังหลัก</div>
+            <div style="display:flex;gap:5px">
+              <button class="tab-btn active" onclick="setFloorMode('status')" id="ftab-status">สถานะ</button>
+              <button class="tab-btn"        onclick="setFloorMode('zone')"   id="ftab-zone">Zone</button>
+              <button onclick="openModal('modal-open')" style="background:var(--leaf);color:white;border-radius:8px;padding:5px 12px;font-family:'Mitr',sans-serif;font-size:12px;cursor:pointer;border:none">+ เปิดโต๊ะ</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:11px">
+            <span>🟢 ว่าง</span><span>🔴 มีลูกค้า</span><span>🟡 เก็บโต๊ะ</span><span>⭐ VIP</span>
+          </div>
+          <div id="floor-grid" class="grid gap-2" style="grid-template-columns:repeat(5,1fr);max-width:460px"></div>
+        </div>
+
+        <!-- Right: VIP Builder -->
+        <div style="width:320px;flex-shrink:0;background:white;border-radius:16px;padding:16px;border:1px solid var(--border);box-shadow:0 2px 12px rgba(92,61,30,.06)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="font-display" style="font-size:16px;color:var(--gold)">⭐ ผังโต๊ะ VIP</div>
+            <div style="display:flex;gap:5px">
+              <button onclick="clearVip()" style="background:#fee2e2;color:var(--red);border-radius:7px;padding:4px 8px;font-size:11px;cursor:pointer;border:none">ล้าง</button>
+              <button onclick="saveVipLayout()" style="background:var(--gold);color:white;border-radius:7px;padding:4px 10px;font-family:'Mitr',sans-serif;font-size:11px;cursor:pointer;border:none">💾 บันทึก</button>
+            </div>
+          </div>
+
+          <!-- Grid size -->
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:12px;color:var(--muted)">
+            <span>ขนาด:</span>
+            <select id="vip-cols" class="input" style="width:60px;padding:3px 6px;font-size:12px" onchange="resizeVipGrid()">
+              <option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option>
+            </select>
+            <span>×</span>
+            <select id="vip-rows" class="input" style="width:60px;padding:3px 6px;font-size:12px" onchange="resizeVipGrid()">
+              <option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option>
+            </select>
+            <span style="margin-left:4px;font-size:10px">(ดับเบิ้ลคลิกลบ)</span>
+          </div>
+
+          <!-- Tools -->
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px">
+            <div class="tool-btn active-tool" id="tool-table" onclick="setTool('table')" style="background:linear-gradient(135deg,#FFF8E1,#FFF3CD);color:#7B5E00">🪑<br><span style="font-size:9px">โต๊ะ</span></div>
+            <div class="tool-btn" id="tool-sofa"  onclick="setTool('sofa')"  style="background:linear-gradient(135deg,#EDE7F6,#D1C4E9);color:#4A1080">🛋️<br><span style="font-size:9px">โซฟา</span></div>
+            <div class="tool-btn" id="tool-stage" onclick="setTool('stage')" style="background:linear-gradient(135deg,#FCE4EC,#F8BBD0);color:#880E4F">🎤<br><span style="font-size:9px">เวที</span></div>
+            <div class="tool-btn" id="tool-bar"   onclick="setTool('bar')"   style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);color:#0D47A1">🍸<br><span style="font-size:9px">บาร์</span></div>
+            <div class="tool-btn" id="tool-erase" onclick="setTool('erase')" style="background:#f5f5f5;color:var(--muted)">🗑️<br><span style="font-size:9px">ลบ</span></div>
+          </div>
+
+          <!-- Canvas -->
+          <div class="vip-canvas" id="vip-canvas"></div>
+
+          <!-- Cell editor -->
+          <div id="vip-cell-info" style="display:none;margin-top:8px;background:var(--warm);border-radius:10px;padding:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--bark);margin-bottom:6px">✏️ ตั้งชื่อ</div>
+            <div style="display:flex;gap:6px">
+              <input id="vip-cell-label" class="input" placeholder="เช่น VIP1, โซฟา A" style="flex:1;font-size:12px">
+              <button onclick="applyCellLabel()" style="background:var(--bark);color:white;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer;border:none">ใส่</button>
+            </div>
+          </div>
+
+          <!-- Saved -->
+          <div style="margin-top:10px">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px">📂 ผังที่บันทึก</div>
+            <div id="vip-saved-list" style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BILLS -->
+    <div id="page-bills" style="padding:24px;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div class="font-display" style="font-size:19px;color:var(--bark)">🧾 บิล & ชำระเงิน</div>
+        <div style="display:flex;gap:5px">
+          <button class="tab-btn active" onclick="filterBills(null)"  id="btab-all">ทั้งหมด</button>
+          <button class="tab-btn"        onclick="filterBills(false)" id="btab-unpaid">ค้างชำระ</button>
+          <button class="tab-btn"        onclick="filterBills(true)"  id="btab-paid">ชำระแล้ว</button>
+        </div>
+      </div>
+      <div id="bills-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+    <!-- TABLES -->
+    <div id="page-tables" style="padding:24px;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="font-display" style="font-size:19px;color:var(--bark)">🪑 จัดการโต๊ะ</div>
+        <button onclick="openModal('modal-add-table')" style="background:var(--leaf);color:white;border-radius:10px;padding:7px 14px;font-family:'Mitr',sans-serif;font-size:13px;cursor:pointer;border:none">+ เพิ่มโต๊ะ</button>
+      </div>
+      <div id="tables-list" style="background:white;border-radius:12px;overflow:hidden;border:1px solid var(--border)"></div>
+    </div>
+
+    <!-- MENU -->
+    <div id="page-menu" style="padding:24px;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="font-display" style="font-size:19px;color:var(--bark)">🍽️ จัดการเมนู</div>
+        <button onclick="openModal('modal-add-menu')" style="background:var(--leaf);color:white;border-radius:10px;padding:7px 14px;font-family:'Mitr',sans-serif;font-size:13px;cursor:pointer;border:none">+ เพิ่มเมนู</button>
+      </div>
+      <div id="menu-list"></div>
+    </div>
+
+    <!-- STAFF -->
+    <div id="page-staff" style="padding:24px;display:none">
+      <div class="font-display" style="font-size:19px;color:var(--bark);margin-bottom:14px">👥 พนักงาน</div>
+      <div id="staff-list"></div>
+    </div>
+
+    <!-- REPORT -->
+    <div id="page-report" style="padding:24px;display:none">
+      <div class="font-display" style="font-size:19px;color:var(--bark);margin-bottom:14px">📊 รายงานยอดขาย</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="date" id="rpt-from" class="input" style="width:148px">
+        <input type="date" id="rpt-to"   class="input" style="width:148px">
+        <button onclick="loadReport()" style="background:var(--bark);color:white;border-radius:10px;padding:8px 16px;font-family:'Mitr',sans-serif;font-size:13px;cursor:pointer;border:none">โหลด</button>
+      </div>
+      <div id="report-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: เปิดโต๊ะ -->
+<div class="modal-overlay" id="modal-open">
+  <div class="modal">
+    <div class="font-display" style="font-size:18px;margin-bottom:14px">🔓 เปิดโต๊ะ</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div><label class="label">เลือกโต๊ะ</label><select id="open-table-select" class="input"><option value="">— เลือกโต๊ะ —</option></select></div>
+      <div><label class="label">ชื่อลูกค้า / บิล</label><input id="open-customer" class="input" placeholder="เช่น พี่เอ, โต๊ะ VIP"></div>
+      <div><label class="label">จำนวนลูกค้า</label><input id="open-guests" type="number" min="1" max="20" value="2" class="input"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('modal-open')">ยกเลิก</button>
+        <button class="btn-primary"   onclick="submitOpenTable()">เปิดโต๊ะ + QR</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: โต๊ะ -->
+<div class="modal-overlay" id="modal-table">
+  <div class="modal">
+    <div class="font-display" style="font-size:18px;margin-bottom:14px" id="modal-table-title">โต๊ะ</div>
+    <div id="modal-table-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: บิล -->
+<div class="modal-overlay" id="modal-bill"><div class="modal"><div id="modal-bill-body"></div></div></div>
+
+<!-- MODAL: ชำระเงิน -->
+<div class="modal-overlay" id="modal-checkout"><div class="modal"><div id="modal-checkout-body"></div></div></div>
+
+<!-- MODAL: เพิ่มโต๊ะ -->
+<div class="modal-overlay" id="modal-add-table">
+  <div class="modal">
+    <div class="font-display" style="font-size:18px;margin-bottom:14px">🪑 เพิ่มโต๊ะใหม่</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div><label class="label">เลขโต๊ะ</label><input id="new-table-num" type="number" class="input" placeholder="เช่น 51"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="label">คอลัมน์</label><input id="new-table-col" type="number" min="1" value="1" class="input"></div>
+        <div><label class="label">แถว</label><input id="new-table-row" type="number" min="1" value="1" class="input"></div>
+      </div>
+      <div><label class="label">จำนวนที่นั่ง</label><input id="new-table-cap" type="number" min="1" value="4" class="input"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('modal-add-table')">ยกเลิก</button>
+        <button class="btn-primary"   onclick="submitAddTable()">เพิ่มโต๊ะ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: เพิ่มเมนู -->
+<div class="modal-overlay" id="modal-add-menu">
+  <div class="modal">
+    <div class="font-display" style="font-size:18px;margin-bottom:14px">🍽️ เพิ่มเมนูใหม่</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div><label class="label">ชื่อเมนู</label><input id="menu-name" class="input" placeholder="เช่น ข้าวผัดกระเพรา"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="label">ราคา (บาท)</label><input id="menu-price" type="number" class="input" placeholder="0"></div>
+        <div><label class="label">หมวดหมู่</label><select id="menu-cat" class="input"><option value="">— เลือก —</option></select></div>
+      </div>
+      <div><label class="label">ส่งไปที่</label>
+        <select id="menu-kds" class="input"><option value="kitchen">ครัว</option><option value="bar">บาร์</option><option value="both">ทั้งคู่</option></select></div>
+      <div><label class="label">คำอธิบาย</label><input id="menu-desc" class="input" placeholder="optional"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('modal-add-menu')">ยกเลิก</button>
+        <button class="btn-primary"   onclick="submitAddMenu()">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='';
+let TABLES=[],ZONES=[],MENU=[],CATS=[],STAFF_LIST=[],BILLS=[];
+let FLOOR_MODE='status',BILL_FILTER=null;
+
+// VIP state
+let VIP_COLS=5,VIP_ROWS=5,VIP_GRID=[],VIP_TOOL='table',VIP_SEL=null;
+let VIP_LAYOUTS=JSON.parse(localStorage.getItem('vip_layouts')||'[]');
+const ICONS={table:'🪑',sofa:'🛋️',stage:'🎤',bar:'🍸'};
+const LABELS={table:'VIP',sofa:'โซฟา',stage:'เวที',bar:'บาร์'};
+
+async function init(){
+  await Promise.all([fetchTables(),fetchZones(),fetchMenu(),fetchCats(),fetchStaff()]);
+  renderFloor();updateSidebar();setDefaultDates();initVipGrid();renderVipCanvas();renderSavedLayouts();
+}
+async function fetchTables(){try{const r=await fetch(`${API}/api/pos/tables`);TABLES=await r.json();}catch(e){}}
+async function fetchZones(){try{const r=await fetch(`${API}/api/admin/zones`);ZONES=await r.json();}catch(e){}}
+async function fetchMenu(){try{const r=await fetch(`${API}/api/admin/menu`);MENU=await r.json();}catch(e){}}
+async function fetchCats(){try{const r=await fetch(`${API}/api/admin/categories`);CATS=await r.json();}catch(e){}}
+async function fetchStaff(){try{const r=await fetch(`${API}/api/staff`);STAFF_LIST=await r.json();}catch(e){}}
+async function fetchBills(){try{const r=await fetch(`${API}/api/pos/bills`);BILLS=await r.json();}catch(e){}}
+
+function showPage(name){
+  ['floor','bills','tables','menu','staff','report'].forEach(p=>{
+    document.getElementById(`page-${p}`).style.display=p===name?'block':'none';
+    document.getElementById(`nav-${p}`).classList.toggle('active',p===name);
+  });
+  if(name==='bills'){fetchBills().then(()=>renderBills());}
+  if(name==='tables')renderTablesList();
+  if(name==='menu')renderMenuList();
+  if(name==='staff')renderStaffList();
+  if(name==='report')loadReport();
+}
+
+// Floor
+function setFloorMode(m){FLOOR_MODE=m;document.getElementById('ftab-status').classList.toggle('active',m==='status');document.getElementById('ftab-zone').classList.toggle('active',m==='zone');renderFloor();}
+function renderFloor(){
+  const grid=document.getElementById('floor-grid');
+  const maxCol=TABLES.length?Math.max(...TABLES.map(t=>t.col||1)):5;
+  const maxRow=TABLES.length?Math.max(...TABLES.map(t=>t.row||1)):10;
+  grid.style.gridTemplateColumns=`repeat(${maxCol},1fr)`;
+  grid.style.maxWidth=`${maxCol*90}px`;
+  let html='';
+  for(let row=1;row<=maxRow;row++){
+    for(let col=1;col<=maxCol;col++){
+      const t=TABLES.find(t=>t.col===col&&t.row===row);
+      if(t){
+        const zone=ZONES.find(z=>z.id===t.zone_id);
+        const st=t.status||'available';
+        const isVip=zone?.name?.toLowerCase().includes('vip');
+        const cls=isVip?'vip':st;
+        let bg=FLOOR_MODE==='zone'&&zone?`background:${zone.color}22;border-color:${zone.color}`:'';
+        html+=`<div class="table-cell ${cls}" style="${bg}" onclick="clickTable(${t.id})">
+          <div style="font-family:'Mitr',sans-serif;font-size:14px;font-weight:600">${t.table_number}</div>
+          <div style="font-size:9px;opacity:.8">${FLOOR_MODE==='zone'?(zone?.name||'—'):{available:'ว่าง',occupied:'มีลูกค้า',cleaning:'เก็บ',reserved:'จอง'}[st]||st}</div>
+        </div>`;
+      }else{
+        html+=`<div class="table-cell" style="background:#f9f7f4;border:2px dashed #e0d5c8;opacity:.4;cursor:default"></div>`;
+      }
+    }
+  }
+  grid.innerHTML=html;updateSidebar();
+}
+function updateSidebar(){const c={available:0,occupied:0,cleaning:0};TABLES.forEach(t=>{if(c[t.status]!==undefined)c[t.status]++;});document.getElementById('sb-available').textContent=c.available;document.getElementById('sb-occupied').textContent=c.occupied;document.getElementById('sb-cleaning').textContent=c.cleaning;}
+
+async function clickTable(id){
+  const t=TABLES.find(x=>x.id===id);if(!t)return;
+  const stTH={available:'ว่าง',occupied:'มีลูกค้า',cleaning:'เก็บโต๊ะ',reserved:'จอง'}[t.status]||t.status;
+  document.getElementById('modal-table-title').textContent=`โต๊ะ ${t.table_number} — ${stTH}`;
+  document.getElementById('modal-table-body').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${t.status==='available'?`<button class="btn-primary" onclick="openTableFrom(${t.id})">🔓 เปิดโต๊ะ</button>`:''}
+      ${t.status==='occupied'?`<button class="btn-primary" onclick="showTableQR(${t.id})">📱 แสดง QR</button><button class="btn-primary" onclick="viewTableBill(${t.id})">🧾 ดูบิล</button><button class="btn-primary" style="background:var(--blue)" onclick="openMoveTable(${t.id})">🔀 ย้ายโต๊ะ</button><button class="btn-primary" style="background:var(--amber)" onclick="setStatus(${t.id},'cleaning')">🧹 เก็บโต๊ะ</button>`:''}
+      ${t.status==='cleaning'?`<button class="btn-primary" onclick="setStatus(${t.id},'available')">✅ พร้อมแล้ว</button>`:''}
+      <div><label class="label">เปลี่ยนเลขโต๊ะ</label>
+        <div style="display:flex;gap:8px"><input id="new-num-input" type="number" class="input" value="${t.table_number}" style="flex:1">
+          <button onclick="changeTableNum(${t.id})" style="background:var(--bark);color:white;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;border:none">บันทึก</button></div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('modal-table')" style="flex:1">ปิด</button>
+        <button class="btn-danger" onclick="deleteTable(${t.id})" style="flex:1">🗑️ ลบโต๊ะ</button>
+      </div>
+    </div>`;
+  openModal('modal-table');
+}
+async function openTableFrom(tableId){closeModal('modal-table');const t=TABLES.find(x=>x.id===tableId);document.getElementById('open-table-select').innerHTML=`<option value="${tableId}">โต๊ะ ${t?.table_number}</option>`;openModal('modal-open');}
+async function setStatus(id,status){await fetch(`${API}/api/pos/tables/${id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await fetchTables();renderFloor();closeModal('modal-table');showToast('อัปเดตสถานะสำเร็จ');}
+async function changeTableNum(id){const num=document.getElementById('new-num-input').value;await fetch(`${API}/api/pos/tables/${id}/number`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({table_number:parseInt(num)})});await fetchTables();renderFloor();closeModal('modal-table');showToast(`เปลี่ยนเลขโต๊ะเป็น ${num}`);}
+async function deleteTable(id){if(!confirm('ยืนยันลบโต๊ะ?'))return;await fetch(`${API}/api/pos/tables/${id}`,{method:'DELETE'});await fetchTables();renderFloor();closeModal('modal-table');showToast('ลบโต๊ะสำเร็จ');}
+
+// VIP Builder
+function initVipGrid(){VIP_GRID=Array.from({length:VIP_ROWS},()=>Array(VIP_COLS).fill(null));}
+function resizeVipGrid(){VIP_COLS=parseInt(document.getElementById('vip-cols').value);VIP_ROWS=parseInt(document.getElementById('vip-rows').value);initVipGrid();VIP_SEL=null;document.getElementById('vip-cell-info').style.display='none';renderVipCanvas();}
+function setTool(t){VIP_TOOL=t;['table','sofa','stage','bar','erase'].forEach(x=>document.getElementById(`tool-${x}`)?.classList.toggle('active-tool',x===t));}
+function renderVipCanvas(){
+  const c=document.getElementById('vip-canvas');
+  c.style.gridTemplateColumns=`repeat(${VIP_COLS},1fr)`;
+  let html='';
+  for(let r=0;r<VIP_ROWS;r++){
+    for(let col=0;col<VIP_COLS;col++){
+      const cell=VIP_GRID[r]?.[col];
+      const isSel=VIP_SEL&&VIP_SEL.r===r&&VIP_SEL.c===col;
+      if(cell){
+        html+=`<div class="vip-cell ${cell.type} ${isSel?'selected-cell':''}" onclick="clickVipCell(${r},${col})" ondblclick="removeVipCell(${r},${col})">
+          <div style="font-size:16px">${ICONS[cell.type]||'🪑'}</div>
+          <div style="font-size:9px;margin-top:1px;font-weight:600">${cell.label||LABELS[cell.type]||''}</div>
+        </div>`;
+      }else{
+        html+=`<div class="vip-cell empty" onclick="clickVipCell(${r},${col})"><div style="font-size:14px;opacity:.3">+</div></div>`;
+      }
+    }
+  }
+  c.innerHTML=html;
+}
+function clickVipCell(r,c){
+  if(VIP_TOOL==='erase'){
+    VIP_GRID[r][c]=null;VIP_SEL=null;
+    document.getElementById('vip-cell-info').style.display='none';
+    renderVipCanvas();return;
+  }
+  if(VIP_GRID[r][c]){
+    // ถ้าเป็นโต๊ะ → แสดง action menu
+    if(VIP_GRID[r][c].type==='table'){
+      openVipTableAction(r,c);return;
+    }
+    VIP_SEL={r,c};
+    document.getElementById('vip-cell-info').style.display='block';
+    document.getElementById('vip-cell-label').value=VIP_GRID[r][c].label||'';
+  } else {
+    VIP_GRID[r][c]={type:VIP_TOOL,label:''};
+    VIP_SEL={r,c};
+    document.getElementById('vip-cell-info').style.display='block';
+    document.getElementById('vip-cell-label').value='';
+  }
+  renderVipCanvas();
+}
+
+function openVipTableAction(r,c){
+  const cell=VIP_GRID[r][c];
+  const label=cell.label||'VIP';
+  // หา available table แรก
+  const av=TABLES.filter(t=>t.status==='available');
+  const modal=document.getElementById('modal-vip-action');
+  document.getElementById('vip-action-title').textContent=`⭐ ${label}`;
+  document.getElementById('vip-action-r').value=r;
+  document.getElementById('vip-action-c').value=c;
+  // ใส่ dropdown โต๊ะว่าง
+  const sel=document.getElementById('vip-table-select');
+  sel.innerHTML='<option value="">— เลือกโต๊ะ —</option>'+av.map(t=>`<option value="${t.id}">โต๊ะ ${t.table_number}</option>`).join('');
+  // ชื่อลูกค้า default จากชื่อ cell
+  document.getElementById('vip-customer-name').value=label;
+  modal.classList.add('open');
+}
+function removeVipCell(r,c){VIP_GRID[r][c]=null;VIP_SEL=null;document.getElementById('vip-cell-info').style.display='none';renderVipCanvas();}
+function applyCellLabel(){if(!VIP_SEL)return;const{r,c}=VIP_SEL;if(VIP_GRID[r][c]){VIP_GRID[r][c].label=document.getElementById('vip-cell-label').value.trim();renderVipCanvas();showToast('ใส่ชื่อแล้ว');}}
+function clearVip(){if(!confirm('ล้าง canvas?'))return;initVipGrid();VIP_SEL=null;document.getElementById('vip-cell-info').style.display='none';renderVipCanvas();}
+function saveVipLayout(){
+  const has=VIP_GRID.some(row=>row.some(c=>c!==null));
+  if(!has){showToast('กรุณาวางโต๊ะก่อน');return;}
+  const name=prompt('ตั้งชื่อผัง VIP:','ผัง VIP '+(VIP_LAYOUTS.length+1));
+  if(!name)return;
+  VIP_LAYOUTS.unshift({id:Date.now(),name,cols:VIP_COLS,rows:VIP_ROWS,grid:JSON.parse(JSON.stringify(VIP_GRID)),createdAt:new Date().toLocaleDateString('th-TH')});
+  localStorage.setItem('vip_layouts',JSON.stringify(VIP_LAYOUTS));
+  renderSavedLayouts();showToast(`✅ บันทึก "${name}" สำเร็จ`);
+}
+function renderSavedLayouts(){
+  const list=document.getElementById('vip-saved-list');
+  if(!VIP_LAYOUTS.length){list.innerHTML='<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px">ยังไม่มีผังที่บันทึก</div>';return;}
+  list.innerHTML=VIP_LAYOUTS.slice(0,6).map(l=>`
+    <div style="display:flex;align-items:center;gap:6px;background:var(--cream);border-radius:8px;padding:7px 10px;border:1px solid var(--border)">
+      <div style="flex:1"><div style="font-size:12px;font-weight:600">⭐ ${l.name}</div><div style="font-size:10px;color:var(--muted)">${l.cols}×${l.rows} | ${l.createdAt}</div></div>
+      <button onclick="loadVipLayout(${l.id})" style="background:var(--amber);color:white;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;border:none">โหลด</button>
+      <button onclick="deleteVipLayout(${l.id})" style="background:#fee2e2;color:var(--red);border-radius:6px;padding:3px 6px;font-size:11px;cursor:pointer;border:none">✕</button>
+    </div>`).join('');
+}
+function loadVipLayout(id){const l=VIP_LAYOUTS.find(x=>x.id===id);if(!l)return;VIP_COLS=l.cols;VIP_ROWS=l.rows;VIP_GRID=JSON.parse(JSON.stringify(l.grid));VIP_SEL=null;document.getElementById('vip-cols').value=VIP_COLS;document.getElementById('vip-rows').value=VIP_ROWS;document.getElementById('vip-cell-info').style.display='none';renderVipCanvas();showToast(`โหลด "${l.name}" แล้ว`);}
+function deleteVipLayout(id){VIP_LAYOUTS=VIP_LAYOUTS.filter(x=>x.id!==id);localStorage.setItem('vip_layouts',JSON.stringify(VIP_LAYOUTS));renderSavedLayouts();showToast('ลบผังสำเร็จ');}
+
+// Open table
+function openTable(){const av=TABLES.filter(t=>t.status==='available');const sel=document.getElementById('open-table-select');sel.innerHTML='<option value="">— เลือกโต๊ะ —</option>'+av.map(t=>`<option value="${t.id}">โต๊ะ ${t.table_number}</option>`).join('');openModal('modal-open');}
+async function submitOpenTable(){
+  const tableId=document.getElementById('open-table-select').value;
+  const customer=document.getElementById('open-customer').value.trim();
+  const guests=document.getElementById('open-guests').value;
+  if(!tableId){showToast('กรุณาเลือกโต๊ะ');return;}
+  try{
+    const res=await fetch(`${API}/api/pos/tables/open`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table_id:parseInt(tableId),guest_count:parseInt(guests)})});
+    const session=await res.json();
+    if(customer&&session.id)await fetch(`${API}/api/pos/sessions/${session.id}/customer`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_name:customer})});
+    const t=TABLES.find(x=>x.id===parseInt(tableId));
+    const qrUrl=`${location.origin}/?token=${encodeURIComponent(session.qr_token)}`;
+    closeModal('modal-open');
+    document.getElementById('modal-table-title').textContent=`โต๊ะ ${t?.table_number} — QR Code`;
+    document.getElementById('modal-table-body').innerHTML=`<div style="text-align:center">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" style="width:200px;height:200px;border-radius:12px;margin-bottom:12px">
+      ${customer?`<div style="font-family:'Mitr',sans-serif;font-size:15px;margin-bottom:8px">👤 ${customer}</div>`:''}
+      <div style="font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:12px">${qrUrl}</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="navigator.clipboard.writeText('${qrUrl}');showToast('คัดลอกแล้ว ✓')">📋 คัดลอก</button>
+        <button class="btn-primary" onclick="closeModal('modal-table')">ปิด</button>
+      </div></div>`;
+    openModal('modal-table');await fetchTables();renderFloor();
+  }catch(e){showToast('เกิดข้อผิดพลาด');}
+}
+
+// Bills
+function filterBills(paid){BILL_FILTER=paid;['all','unpaid','paid'].forEach(k=>document.getElementById(`btab-${k}`).classList.toggle('active',paid===null&&k==='all'||(paid===false&&k==='unpaid')||(paid===true&&k==='paid')));renderBills();}
+function renderBills(){
+  const list=document.getElementById('bills-list');
+  let bills=BILL_FILTER!==null?BILLS.filter(b=>b.is_paid===BILL_FILTER):BILLS;
+  if(!bills.length){list.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">ไม่มีบิล</div>';return;}
+  list.innerHTML=bills.map(b=>`
+    <div style="background:white;border-radius:12px;padding:13px;border:1px solid var(--border);cursor:pointer" onclick="viewBill(${b.session_id})">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-weight:600;font-size:15px">👤 ${b.customer_name}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">📅 ${b.opened_at} | ${b.items_count} รายการ</div></div>
+        <div style="text-align:right"><div style="font-family:'Mitr',sans-serif;color:var(--amber);font-size:16px">฿${b.total.toFixed(0)}</div><span class="badge ${b.is_paid?'badge-paid':'badge-unpaid'}">${b.is_paid?'ชำระแล้ว':'ค้างชำระ'}</span></div>
+      </div></div>`).join('');
+}
+async function viewBill(sessionId){
+  const res=await fetch(`${API}/api/orders/session/${sessionId}`);const orders=await res.json();
+  const bill=BILLS.find(b=>b.session_id===sessionId);
+  const total=orders.reduce((s,o)=>s+parseFloat(o.total||0),0);
+  document.getElementById('modal-bill-body').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="font-display" style="font-size:17px">🧾 ${bill?.customer_name||'บิล'}</div>
+      <button onclick="closeModal('modal-bill')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">📅 ${bill?.opened_at||'—'}</div>
+    ${orders.map(o=>`<div style="margin-bottom:10px">${o.items.map(item=>{const m=MENU.find(x=>x.id===item.menu_item_id);return`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #f0e8dc;font-size:13px"><span>${item.quantity}× ${m?.name||'รายการ #'+item.menu_item_id}</span><span style="color:var(--muted)">฿${parseFloat(item.line_total).toFixed(0)}</span></div>`;}).join('')}</div>`).join('')}
+    <div style="background:var(--warm);border-radius:10px;padding:12px;margin-top:10px">
+      <div style="display:flex;justify-content:space-between;font-family:'Mitr',sans-serif;font-size:17px"><span>รวมทั้งหมด</span><span style="color:var(--leaf)">฿${total.toFixed(0)}</span></div></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      ${!bill?.is_paid?`<button class="btn-primary" onclick="closeModal('modal-bill');openCheckout(${sessionId})">💳 เช็คบิล / ชำระเงิน</button>`:'<div style="text-align:center;width:100%;color:var(--leaf);font-weight:600">✅ ชำระแล้ว</div>'}
+    </div>`;
+  openModal('modal-bill');
+}
+async function viewTableBill(tableId){closeModal('modal-table');await fetchBills();const bill=BILLS.find(b=>b.table_id===tableId&&!b.is_paid);if(bill)viewBill(bill.session_id);else showToast('ไม่พบบิลค้างชำระ');}
+
+// Checkout
+function openCheckout(sessionId){
+  const bill=BILLS.find(b=>b.session_id===sessionId);
+  document.getElementById('modal-checkout-body').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="font-display" style="font-size:16px">💳 ${bill?.customer_name||'ชำระเงิน'}</div>
+      <button onclick="closeModal('modal-checkout')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div><label class="label">วิธีชำระเงิน</label>
+        <select id="co-method" class="input"><option value="cash">💵 เงินสด</option><option value="qr_pay">📱 QR Pay</option><option value="card">💳 บัตรเครดิต</option><option value="other">อื่นๆ</option></select></div>
+      <div style="background:var(--warm);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-weight:600;font-size:12px;color:var(--bark)">🏷️ ส่วนลด</div>
+        <div><label class="label">ส่วนลดเฉพาะอาหาร (%)</label><input id="co-food-disc" type="number" min="0" max="100" value="0" class="input" oninput="calcPreview(${sessionId})"></div>
+        <div><label class="label">ส่วนลดรวมทั้งหมด (%)</label><input id="co-total-disc" type="number" min="0" max="100" value="0" class="input" oninput="calcPreview(${sessionId})"></div>
+        <div><label class="label">ส่วนลดตายตัว (บาท)</label><input id="co-fixed-disc" type="number" min="0" value="0" class="input" oninput="calcPreview(${sessionId})"></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button onclick="setDiscount(0,10,0,${sessionId})" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:11px;cursor:pointer">VIP 10%</button>
+          <button onclick="setDiscount(0,20,0,${sessionId})" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:11px;cursor:pointer">เจ้าของ 20%</button>
+          <button onclick="setDiscount(0,100,0,${sessionId})" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:11px;cursor:pointer">ฟรี 100%</button>
+          <button onclick="setDiscount(0,0,0,${sessionId})" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:11px;cursor:pointer">ล้าง</button>
+        </div>
+      </div>
+      <div id="co-preview" style="background:white;border-radius:10px;padding:12px;border:1px solid var(--border)"><div style="color:var(--muted);font-size:13px">กำลังคำนวณ...</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('modal-checkout')">ยกเลิก</button>
+        <button class="btn-primary" onclick="submitCheckout(${sessionId})">✅ ยืนยันชำระเงิน</button>
+      </div>
+    </div>`;
+  openModal('modal-checkout');calcPreview(sessionId);
+}
+async function calcPreview(sessionId){
+  const bill=BILLS.find(b=>b.session_id===sessionId);const total=bill?.total||0;
+  const fd=parseFloat(document.getElementById('co-food-disc')?.value||0);
+  const td=parseFloat(document.getElementById('co-total-disc')?.value||0);
+  const fx=parseFloat(document.getElementById('co-fixed-disc')?.value||0);
+  const fda=total*fd/100;const tda=(total-fda)*td/100;const all=fda+tda+fx;
+  const after=Math.max(0,total-all);const vat=after*0.07;const grand=after+vat;
+  const p=document.getElementById('co-preview');
+  if(p)p.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">
+    <div style="display:flex;justify-content:space-between"><span>ยอดก่อนส่วนลด</span><span>฿${total.toFixed(0)}</span></div>
+    ${all>0?`<div style="display:flex;justify-content:space-between;color:var(--red)"><span>ส่วนลด</span><span>-฿${all.toFixed(0)}</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;color:var(--muted)"><span>VAT 7%</span><span>฿${vat.toFixed(0)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-family:'Mitr',sans-serif;font-size:17px;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)"><span>รวมสุทธิ</span><span style="color:var(--leaf)">฿${grand.toFixed(0)}</span></div>
+  </div>`;
+}
+function setDiscount(f,t,fx,sid){document.getElementById('co-food-disc').value=f;document.getElementById('co-total-disc').value=t;document.getElementById('co-fixed-disc').value=fx;calcPreview(sid);}
+async function submitCheckout(sessionId){
+  const method=document.getElementById('co-method').value;
+  const fd=parseFloat(document.getElementById('co-food-disc').value||0);
+  const td=parseFloat(document.getElementById('co-total-disc').value||0);
+  const fx=parseFloat(document.getElementById('co-fixed-disc').value||0);
+  try{
+    const res=await fetch(`${API}/api/pos/checkout/discount`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,payment_method:method,food_discount_pct:fd,total_discount_pct:td,fixed_discount:fx})});
+    if(!res.ok){const e=await res.json();showToast(e.detail||'เกิดข้อผิดพลาด');return;}
+    closeModal('modal-checkout');await fetchTables();await fetchBills();renderFloor();renderBills();showToast('✅ ชำระเงินสำเร็จ!');
+  }catch(e){showToast('เกิดข้อผิดพลาด');}
+}
+
+// Tables
+function renderTablesList(){
+  const list=document.getElementById('tables-list');
+  if(!TABLES.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted)">ยังไม่มีโต๊ะ</div>';return;}
+  const stTH={available:'ว่าง',occupied:'มีลูกค้า',cleaning:'เก็บโต๊ะ',reserved:'จอง'};
+  list.innerHTML=TABLES.sort((a,b)=>a.table_number-b.table_number).map(t=>`
+    <div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px">
+      <div style="font-family:'Mitr',sans-serif;font-size:17px;font-weight:600;width:30px;color:var(--bark)">${t.table_number}</div>
+      <div style="flex:1"><div style="font-size:11px;color:var(--muted)">ที่นั่ง ${t.capacity} | col=${t.col} row=${t.row}</div></div>
+      <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${t.status==='available'?'#dcfce7':t.status==='occupied'?'#fef9c3':'#f3e8ff'};color:${t.status==='available'?'var(--leaf)':t.status==='occupied'?'#92400e':'#6a1b9a'}">${stTH[t.status]||t.status}</span>
+      <button onclick="clickTable(${t.id})" style="background:var(--bark);color:white;border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;border:none">แก้ไข</button>
+    </div>`).join('');
+}
+async function submitAddTable(){
+  const num=document.getElementById('new-table-num').value;const col=document.getElementById('new-table-col').value;const row=document.getElementById('new-table-row').value;const cap=document.getElementById('new-table-cap').value;
+  if(!num){showToast('กรุณาระบุเลขโต๊ะ');return;}
+  try{await fetch(`${API}/api/pos/tables`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table_number:parseInt(num),col:parseInt(col),row:parseInt(row),capacity:parseInt(cap)})});await fetchTables();renderTablesList();renderFloor();closeModal('modal-add-table');showToast(`✅ เพิ่มโต๊ะ ${num}`);}catch(e){showToast('เกิดข้อผิดพลาด');}
+}
+
+// Menu
+function renderMenuList(){
+  const container=document.getElementById('menu-list');
+  if(!MENU.length){container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px">ยังไม่มีเมนู</div>';return;}
+  const grouped={};MENU.forEach(item=>{const cat=CATS.find(c=>c.id===item.category_id);const key=cat?.name||'อื่นๆ';if(!grouped[key])grouped[key]=[];grouped[key].push(item);});
+  container.innerHTML=Object.entries(grouped).map(([catName,items])=>`
+    <div style="margin-bottom:16px">
+      <div style="font-family:'Mitr',sans-serif;font-size:14px;color:var(--bark);margin-bottom:6px">${catName}</div>
+      <div style="background:white;border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        ${items.map(item=>`<div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px">
+          <div style="flex:1"><div style="font-weight:600;font-size:13px">${item.name}</div><div style="font-size:11px;color:var(--muted)">${item.kds_route} | ฿${parseFloat(item.price).toFixed(0)}</div></div>
+          <span style="font-size:11px;padding:2px 7px;border-radius:999px;${item.is_sold_out?'background:#fee2e2;color:var(--red)':'background:#dcfce7;color:var(--leaf)'}">${item.is_sold_out?'หมด':'มี'}</span>
+          <button onclick="toggleSoldOut(${item.id},'${item.name}')" style="font-size:11px;padding:3px 7px;border-radius:7px;border:1px solid var(--border);cursor:pointer;background:white">${item.is_sold_out?'✅ เปิดขาย':'❌ หมด'}</button>
+        </div>`).join('')}
+      </div></div>`).join('');
+}
+async function toggleSoldOut(id,name){await fetch(`${API}/api/admin/menu/${id}/sold-out`,{method:'POST'});await fetchMenu();renderMenuList();showToast(`อัปเดต "${name}"`);}
+async function submitAddMenu(){
+  const name=document.getElementById('menu-name').value.trim();const price=document.getElementById('menu-price').value;const catId=document.getElementById('menu-cat').value;const kds=document.getElementById('menu-kds').value;const desc=document.getElementById('menu-desc').value.trim();
+  if(!name||!price||!catId){showToast('กรุณากรอกข้อมูลให้ครบ');return;}
+  try{await fetch(`${API}/api/admin/menu`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,price:parseFloat(price),category_id:parseInt(catId),kds_route:kds,description:desc||null,modifier_groups:[]})});await fetchMenu();renderMenuList();closeModal('modal-add-menu');showToast(`✅ เพิ่ม "${name}"`);}catch(e){showToast('เกิดข้อผิดพลาด');}
+}
+function openAddMenu(){const sel=document.getElementById('menu-cat');sel.innerHTML='<option value="">— เลือก —</option>'+CATS.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');openModal('modal-add-menu');}
+
+// Staff
+function renderStaffList(){
+  const container=document.getElementById('staff-list');const roleTH={admin:'ผู้จัดการ',cashier:'แคชเชียร์',waiter:'เสิร์ฟ',kitchen:'ครัว',bar:'บาร์'};
+  if(!STAFF_LIST.length){container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px">ยังไม่มีพนักงาน</div>';return;}
+  container.innerHTML=`<div style="background:white;border-radius:12px;overflow:hidden;border:1px solid var(--border)">${STAFF_LIST.map(s=>`
+    <div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;font-family:'Mitr',sans-serif;font-size:13px;color:var(--bark);flex-shrink:0">${s.nickname.charAt(0)}</div>
+      <div style="flex:1"><div style="font-weight:600;font-size:13px">${s.full_name} <span style="color:var(--muted);font-size:11px">(${s.nickname})</span></div><div style="font-size:11px;color:var(--muted)">${roleTH[s.role]||s.role} | ${s.phone}</div></div>
+      <span style="font-size:11px;padding:2px 7px;border-radius:999px;background:${s.status==='active'?'#dcfce7':s.status==='reviewing'?'#dbeafe':'#f3f4f6'};color:${s.status==='active'?'var(--leaf)':s.status==='reviewing'?'var(--blue)':'var(--muted)'}">${s.status}</span>
+      ${s.status==='reviewing'?`<button onclick="approveStaff(${s.id},'${s.nickname}')" style="font-size:11px;background:var(--leaf);color:white;padding:3px 8px;border-radius:6px;cursor:pointer;border:none">อนุมัติ</button>`:''}
+    </div>`).join('')}</div>`;
+}
+async function approveStaff(id,nickname){await fetch(`${API}/api/staff/${id}/approve`,{method:'POST'});await fetchStaff();renderStaffList();showToast(`✅ อนุมัติ ${nickname}`);}
+
+// Report
+function setDefaultDates(){const today=new Date().toISOString().split('T')[0];const w7=new Date(Date.now()-7*86400000).toISOString().split('T')[0];document.getElementById('rpt-from').value=w7;document.getElementById('rpt-to').value=today;}
+async function loadReport(){
+  const from=document.getElementById('rpt-from').value;const to=document.getElementById('rpt-to').value;
+  const container=document.getElementById('report-content');container.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted)">กำลังโหลด...</div>';
+  try{
+    const res=await fetch(`${API}/api/reports/sales?date_from=${from}&date_to=${to}`);const data=await res.json();
+    container.innerHTML=`<div class="grid grid-cols-3 gap-3 mb-4">
+      <div class="stat-card"><div style="color:var(--muted);font-size:12px">ยอดรวม</div><div class="stat-num" style="color:var(--leaf)">฿${parseFloat(data.total_revenue||0).toFixed(0)}</div></div>
+      <div class="stat-card"><div style="color:var(--muted);font-size:12px">จำนวน bill</div><div class="stat-num">${data.order_count||0}</div></div>
+      <div class="stat-card"><div style="color:var(--muted);font-size:12px">เฉลี่ย/bill</div><div class="stat-num" style="color:var(--amber)">฿${data.order_count?(parseFloat(data.total_revenue)/data.order_count).toFixed(0):0}</div></div>
+    </div>
+    ${data.top_items?.length?`<div class="font-display" style="font-size:15px;color:var(--bark);margin-bottom:8px">🏆 เมนูขายดี</div>
+      <div style="background:white;border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        ${data.top_items.map((item,i)=>`<div style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px">
+          <div style="font-family:'Mitr',sans-serif;font-size:14px;color:var(--muted);width:20px">${i+1}</div>
+          <div style="flex:1"><div style="font-weight:600;font-size:13px">${item.name}</div><div style="font-size:11px;color:var(--muted)">ขาย ${item.quantity_sold} รายการ</div></div>
+          <div style="font-family:'Mitr',sans-serif;color:var(--amber);font-size:13px">฿${parseFloat(item.total_revenue).toFixed(0)}</div>
+        </div>`).join('')}</div>`:''}`;
+  }catch(e){container.innerHTML='<div style="color:var(--red);padding:16px">โหลดข้อมูลไม่ได้</div>';}
+}
+
+// Modal/Toast
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(el=>{el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');});});
+let toastTimer;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2800);}
+function updateClock(){document.getElementById('sidebar-clock').textContent=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});}
+setInterval(updateClock,1000);setInterval(async()=>{await fetchTables();renderFloor();},30000);
+
+async function showTableQR(tableId){
+  try{
+    const res=await fetch(`${API}/api/pos/tables/${tableId}/session`);
+    const session=await res.json();
+    const t=TABLES.find(x=>x.id===tableId);
+    const qrUrl=`${location.origin}/?token=${encodeURIComponent(session.qr_token)}`;
+    document.getElementById('modal-table-title').textContent=`โต๊ะ ${t?.table_number} — QR Code`;
+    document.getElementById('modal-table-body').innerHTML=`
+      <div style="text-align:center">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" style="width:200px;height:200px;border-radius:12px;margin-bottom:12px">
+        ${session.customer_name?`<div style="font-family:'Mitr',sans-serif;font-size:15px;margin-bottom:8px">👤 ${session.customer_name}</div>`:''}
+        <div style="font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:12px">${qrUrl}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-secondary" onclick="navigator.clipboard.writeText('${qrUrl}');showToast('คัดลอกแล้ว ✓')">📋 คัดลอก URL</button>
+          <button class="btn-secondary" onclick="printQR('${qrUrl}')">🖨️ ปริ้น QR</button>
+          <button class="btn-primary" onclick="closeModal('modal-table')">ปิด</button>
+        </div>
+      </div>`;
+  }catch(e){showToast('เกิดข้อผิดพลาด');}
+}
+
+function printQR(qrUrl) {
+  const win = window.open('', '_blank', 'width=400,height=500');
+  const html = '<!DOCTYPE html><html><head><title>QR</title><style>body{font-family:sans-serif;text-align:center;padding:30px}img{width:250px;height:250px}@media print{button{display:none}}</style></head><body><h2>ลานสุข</h2><p>สแกนเพื่อสั่งอาหาร</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(qrUrl) + '"><p>' + qrUrl + '</p><button onclick="window.print()">ปริ้น</button></body></html>';
+  win.document.close();
+  setTimeout(function(){ win.print(); }, 500);
+}
+<div class="modal-overlay" id="modal-move-table">
+  <div class="modal" style="max-width:400px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="font-display" style="font-size:18px">🔀 ย้ายโต๊ะ</div>
+      <button onclick="closeModal('modal-move-table')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--warm);border-radius:10px;padding:10px 14px;font-size:14px">
+        ย้ายจาก: <span id="move-from-label" style="font-weight:600;font-family:'Mitr',sans-serif"></span>
+      </div>
+      <div>
+        <label class="label">ย้ายไปโต๊ะ</label>
+        <select id="move-to-select" class="input">
+          <option value="">— เลือกโต๊ะว่าง —</option>
+        </select>
+      </div>
+      <div id="move-preview" style="display:none;background:#E8F5E9;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--leaf)"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('modal-move-table')">ยกเลิก</button>
+        <button class="btn-primary" onclick="submitMoveTable()">🔀 ย้ายโต๊ะ</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>';
+  win.document.write(html);
+  win.document.close();
+  setTimeout(function(){ win.print(); }, 500);
+}
+
+// ══ ย้ายโต๊ะ ══════════════════════════════════════════════════════════════
+let MOVE_FROM_ID = null;
+
+function openMoveTable(tableId) {
+  MOVE_FROM_ID = tableId;
+  const t = TABLES.find(x => x.id === tableId);
+  document.getElementById('move-from-label').textContent = 'โต๊ะ ' + t?.table_number;
+  document.getElementById('move-preview').style.display = 'none';
+
+  // โต๊ะว่างทั้งหมด ยกเว้นตัวเอง
+  const available = TABLES.filter(x => x.status === 'available' && x.id !== tableId);
+  const sel = document.getElementById('move-to-select');
+  sel.innerHTML = '<option value="">— เลือกโต๊ะว่าง —</option>' +
+    available.map(x => '<option value="' + x.id + '">โต๊ะ ' + x.table_number + '</option>').join('');
+
+  closeModal('modal-table');
+  openModal('modal-move-table');
+}
+
+async function submitMoveTable() {
+  const toId = document.getElementById('move-to-select').value;
+
+  const fromT = TABLES.find(x => x.id === MOVE_FROM_ID);
+  const toT   = TABLES.find(x => x.id === parseInt(toId));
+
+  try {
+    const res = await fetch(API + '/api/pos/tables/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from_table_id: MOVE_FROM_ID, to_table_id: parseInt(toId) })
+    });
+    const data = await res.json();
+
+    closeModal('modal-move-table');
+    await fetchTables();
+    renderFloor();
+    showToast('✅ ย้ายจากโต๊ะ ' + fromT?.table_number + ' → โต๊ะ ' + toT?.table_number + ' สำเร็จ');
+  } catch(e) {
+    showToast('เกิดข้อผิดพลาด');
+  }
+}
+updateClock();init();
+</script>
+
+<div class="modal-overlay" id="modal-vip-action">
+  <div class="modal" style="max-width:480px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="font-display" style="font-size:18px;color:var(--gold)" id="vip-action-title">⭐ VIP</div>
+      <button onclick="closeModal('modal-vip-action')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <input type="hidden" id="vip-action-r">
+    <input type="hidden" id="vip-action-c">
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div><label class="label">เลือกโต๊ะที่ผูก</label>
+        <select id="vip-table-select" class="input"></select></div>
+      <div><label class="label">ชื่อลูกค้า VIP</label>
+        <input id="vip-customer-name" class="input" placeholder="เช่น คุณสมชาย, โต๊ะ VIP 1"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+        <button onclick="openVipQR()"
+          style="background:linear-gradient(135deg,#FFF8E1,#FFF3CD);border:2px solid var(--gold);border-radius:12px;padding:16px;cursor:pointer;text-align:center">
+          <div style="font-size:28px;margin-bottom:6px">📱</div>
+          <div class="font-display" style="font-size:14px;color:#7B5E00">ลูกค้าสแกน QR</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">สร้าง QR ให้ลูกค้าสั่งเอง</div>
+        </button>
+        <button onclick="openStaffOrder()"
+          style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:2px solid var(--leaf);border-radius:12px;padding:16px;cursor:pointer;text-align:center">
+          <div style="font-size:28px;margin-bottom:6px">👨‍🍳</div>
+          <div class="font-display" style="font-size:14px;color:var(--leaf)">พนักงานสั่งแทน</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">พนักงานเลือกเมนูให้ลูกค้า</div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-staff-order">
+  <div class="modal" style="max-width:560px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="font-display" style="font-size:18px">👨‍🍳 สั่งอาหารแทนลูกค้า</div>
+      <button onclick="closeModal('modal-staff-order')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#FFF8E1,#FFF3CD);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px">
+      👤 <span id="so-customer-name" style="font-weight:600"></span>
+      | โต๊ะ <span id="so-table-num" style="font-weight:600"></span>
+    </div>
+
+    <div id="so-cart" style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;margin-bottom:10px"></div>
+    <div id="so-cart-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:16px">ยังไม่มีรายการ — เลือกเมนูด้านล่าง</div>
+
+    <div id="so-total-bar" style="display:none;background:var(--warm);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:13px">รวม</span>
+      <span class="font-display" style="font-size:18px;color:var(--leaf)">฿<span id="so-total">0</span></span>
+    </div>
+
+    <div id="so-cats" class="cat-scroll" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px"></div>
+
+    <div id="so-menu" style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto"></div>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn-secondary" onclick="closeModal('modal-staff-order')">ยกเลิก</button>
+      <button class="btn-primary" onclick="submitStaffOrder()">✅ ส่งออเดอร์</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-move-table">
+  <div class="modal" style="max-width:400px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="font-display" style="font-size:18px">🔀 ย้ายโต๊ะ</div>
+      <button onclick="closeModal('modal-move-table')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--warm);border-radius:10px;padding:10px 14px;font-size:14px">
+        ย้ายจาก: <span id="move-from-label" style="font-weight:600;font-family:'Mitr',sans-serif"></span>
+      </div>
+      <div>
+        <label class="label">ย้ายไปโต๊ะ</label>
+        <select id="move-to-select" class="input">
+          <option value="">— เลือกโต๊ะว่าง —</option>
+        </select>
+      </div>
+      <div id="move-preview" style="display:none;background:#E8F5E9;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--leaf)"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('modal-move-table')">ยกเลิก</button>
+        <button class="btn-primary" onclick="submitMoveTable()">🔀 ย้ายโต๊ะ</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

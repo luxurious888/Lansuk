@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ลานสุข — KDS</title>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg:     #0f1117;
+    --bg2:    #1a1d27;
+    --bg3:    #22263a;
+    --border: #2e3347;
+    --text:   #e8eaf0;
+    --muted:  #6b7280;
+    --green:  #22c55e;
+    --amber:  #f59e0b;
+    --red:    #ef4444;
+    --blue:   #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .font-display { font-family: 'Mitr', sans-serif; }
+
+  /* Header */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  /* Route tabs */
+  .route-tab {
+    padding: 8px 24px;
+    border-radius: 8px;
+    font-family: 'Mitr', sans-serif;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all .2s;
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+  }
+  .route-tab.active {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: white;
+  }
+
+  /* Order card */
+  .order-card {
+    background: var(--bg2);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color .3s;
+    animation: slideIn .3s ease both;
+  }
+  .order-card.urgent { border-color: var(--red); }
+  .order-card.warning { border-color: var(--amber); }
+
+  @keyframes slideIn {
+    from { opacity:0; transform: translateY(12px); }
+    to   { opacity:1; transform: none; }
+  }
+
+  .card-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Timer */
+  .timer {
+    font-family: 'Mitr', sans-serif;
+    font-size: 13px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+  .timer.ok     { background: rgba(34,197,94,.15);  color: var(--green); }
+  .timer.warn   { background: rgba(245,158,11,.15); color: var(--amber); }
+  .timer.urgent { background: rgba(239,68,68,.15);  color: var(--red);   }
+
+  /* Item row */
+  .item-row {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .item-row:last-child { border-bottom: none; }
+
+  .qty-badge {
+    background: var(--bg3);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Mitr', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .status-pill {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .s-pending   { background: rgba(107,114,128,.2); color: var(--muted); }
+  .s-confirmed { background: rgba(59,130,246,.2);  color: var(--blue);  }
+  .s-preparing { background: rgba(245,158,11,.2);  color: var(--amber); }
+  .s-ready     { background: rgba(34,197,94,.2);   color: var(--green); }
+
+  /* Action buttons */
+  .btn-ready {
+    background: var(--green);
+    color: #000;
+    font-family: 'Mitr', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-ready:active { transform: scale(.94); }
+  .btn-served {
+    background: var(--bg3);
+    color: var(--muted);
+    font-family: 'Mitr', sans-serif;
+    font-size: 14px;
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all .15s;
+  }
+
+  /* All ready banner */
+  .all-ready-btn {
+    width: 100%;
+    background: var(--green);
+    color: #000;
+    font-family: 'Mitr', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px;
+    border-radius: 0 0 14px 14px;
+    cursor: pointer;
+    transition: all .2s;
+    text-align: center;
+  }
+  .all-ready-btn:active { filter: brightness(.9); }
+
+  /* Empty state */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 60vh;
+    color: var(--muted);
+  }
+
+  /* Clock */
+  #clock { font-family: 'Mitr', sans-serif; font-size: 14px; color: var(--muted); }
+
+  /* Pulse dot */
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+    50%      { opacity:.7; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+  }
+
+  /* Sound toggle */
+  .sound-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .sound-btn.on { color: var(--green); border-color: var(--green); }
+
+  /* Stats bar */
+  .stats-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 24px;
+    display: flex;
+    gap: 24px;
+    font-size: 13px;
+  }
+  .stat { display: flex; align-items: center; gap: 6px; }
+  .stat-num { font-family: 'Mitr', sans-serif; font-size: 18px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="live-dot"></span>
+    <span class="font-display" style="font-size:18px">ลานสุข KDS</span>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="tab-kitchen" class="route-tab active" onclick="setRoute('kitchen')">🍳 ครัว</button>
+    <button id="tab-bar"     class="route-tab"        onclick="setRoute('bar')">🍺 บาร์</button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px">
+    <button class="sound-btn on" id="sound-btn" onclick="toggleSound()">🔔 เสียง</button>
+    <div id="clock"></div>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="stats-bar">
+  <div class="stat">
+    <span style="color:var(--muted)">รอดำเนินการ</span>
+    <span class="stat-num" id="stat-pending" style="color:var(--amber)">0</span>
+  </div>
+  <div class="stat">
+    <span style="color:var(--muted)">กำลังทำ</span>
+    <span class="stat-num" id="stat-preparing" style="color:var(--blue)">0</span>
+  </div>
+  <div class="stat">
+    <span style="color:var(--muted)">พร้อมเสิร์ฟ</span>
+    <span class="stat-num" id="stat-ready" style="color:var(--green)">0</span>
+  </div>
+  <div class="stat" style="margin-left:auto">
+    <span style="color:var(--muted)">รีเฟรชทุก</span>
+    <span class="stat-num" style="color:var(--muted);font-size:14px">8s</span>
+  </div>
+</div>
+
+<!-- Main grid -->
+<div style="padding:20px;max-width:1400px;margin:auto">
+  <div id="kds-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+</div>
+
+<script>
+const API = '';
+let ROUTE        = 'kitchen';
+let ORDERS       = [];   // raw items from API
+let SOUND_ON     = true;
+let PREV_IDS     = new Set();
+let TIMERS       = {};   // orderItemId → startTime
+
+// เสียงแจ้งเตือน (Web Audio API)
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+function beep(freq=880, dur=0.15) {
+  if (!SOUND_ON) return;
+  try {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.3, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    o.start(); o.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+function newOrderSound() { beep(880,.12); setTimeout(()=>beep(1100,.12),150); }
+
+// ══ Route ══════════════════════════════════════════════════════════════════
+function setRoute(r) {
+  ROUTE = r;
+  document.getElementById('tab-kitchen').classList.toggle('active', r==='kitchen');
+  document.getElementById('tab-bar').classList.toggle('active', r==='bar');
+  fetchOrders();
+}
+
+function toggleSound() {
+  SOUND_ON = !SOUND_ON;
+  const btn = document.getElementById('sound-btn');
+  btn.textContent = SOUND_ON ? '🔔 เสียง' : '🔕 เสียง';
+  btn.classList.toggle('on', SOUND_ON);
+}
+
+// ══ Fetch ═══════════════════════════════════════════════════════════════════
+async function fetchOrders() {
+  try {
+    const res = await fetch(`${API}/api/orders/kds/${ROUTE}`);
+    if (!res.ok) return;
+    const items = await res.json();
+
+    // ตรวจออเดอร์ใหม่
+    const newIds = new Set(items.map(i => i.order_item_id));
+    let hasNew = false;
+    newIds.forEach(id => { if (!PREV_IDS.has(id)) hasNew = true; });
+    if (hasNew && PREV_IDS.size > 0) newOrderSound();
+    PREV_IDS = newIds;
+
+    // group by order_id
+    const grouped = {};
+    items.forEach(item => {
+      if (!grouped[item.order_id]) grouped[item.order_id] = [];
+      grouped[item.order_id].push(item);
+    });
+
+    ORDERS = grouped;
+    renderGrid();
+    updateStats(items);
+  } catch(e) {
+    console.error('KDS fetch error:', e);
+  }
+}
+
+// ══ Render ══════════════════════════════════════════════════════════════════
+function renderGrid() {
+  const grid = document.getElementById('kds-grid');
+  const entries = Object.entries(ORDERS);
+
+  if (entries.length === 0) {
+    grid.innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        <div style="font-size:56px">✅</div>
+        <div class="font-display" style="font-size:20px">ไม่มีออเดอร์รออยู่</div>
+        <div style="font-size:14px">ออเดอร์ใหม่จะขึ้นอัตโนมัติ</div>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = entries.map(([orderId, items]) => orderCard(orderId, items)).join('');
+}
+
+function orderCard(orderId, items) {
+  // คำนวณเวลาที่รอ (จาก item แรก)
+  const firstItem = items[0];
+  if (!TIMERS[firstItem.order_item_id]) TIMERS[firstItem.order_item_id] = Date.now();
+  const elapsed = Math.floor((Date.now() - TIMERS[firstItem.order_item_id]) / 1000);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  const timerClass = elapsed < 300 ? 'ok' : elapsed < 600 ? 'warn' : 'urgent';
+  const cardClass  = elapsed < 300 ? '' : elapsed < 600 ? 'warning' : 'urgent';
+
+  const allReady = items.every(i => i.status === 'ready' || i.status === 'served');
+  const allPending = items.every(i => i.status === 'pending');
+
+  return `
+    <div class="order-card ${cardClass}" id="card-${orderId}">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="font-display" style="font-size:16px;font-weight:600">ออเดอร์ #${orderId}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="timer ${timerClass}">${mins}:${String(secs).padStart(2,'0')}</span>
+          ${allPending ? `<button class="btn-ready" onclick="markAllPreparing(${orderId})">เริ่มทำ</button>` : ''}
+        </div>
+      </div>
+
+      <div style="flex:1">
+        ${items.map(item => itemRow(item)).join('')}
+      </div>
+
+      ${allReady ? `
+        <div class="all-ready-btn" onclick="markAllServed(${orderId})">
+          ✅ เสิร์ฟแล้ว — ออเดอร์ #${orderId}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function itemRow(item) {
+  const statusClass = { pending:'s-pending', confirmed:'s-confirmed', preparing:'s-preparing', ready:'s-ready' }[item.status] || 's-pending';
+  const statusTH    = { pending:'รอ', confirmed:'รับแล้ว', preparing:'กำลังทำ', ready:'พร้อม', served:'เสิร์ฟ' }[item.status] || item.status;
+
+  return `
+    <div class="item-row">
+      <div class="qty-badge">${item.quantity}</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:15px">เมนู #${item.menu_item_id}</div>
+        ${item.modifiers?.length ? `
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+            ${item.modifiers.map(m=>`<span style="background:var(--bg3);border-radius:4px;padding:1px 6px;margin-right:4px">${m.name}</span>`).join('')}
+          </div>` : ''}
+        ${item.note ? `<div style="font-size:12px;color:var(--amber);margin-top:3px;font-style:italic">📝 ${item.note}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <span class="status-pill ${statusClass}">${statusTH}</span>
+        ${item.status === 'preparing' || item.status === 'confirmed' ? `
+          <button class="btn-ready" onclick="markReady(${item.order_item_id})">พร้อม ✓</button>
+        ` : ''}
+        ${item.status === 'pending' ? `
+          <button class="btn-served" onclick="markConfirmed(${item.order_item_id})">รับ</button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// ══ Actions ══════════════════════════════════════════════════════════════════
+async function updateStatus(orderItemId, status) {
+  try {
+    await fetch(`${API}/api/orders/kds/update`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_item_id: orderItemId, status }),
+    });
+    beep(660, .1);
+    await fetchOrders();
+  } catch(e) { console.error(e); }
+}
+
+async function markConfirmed(id) { await updateStatus(id, 'confirmed'); }
+async function markReady(id)     { await updateStatus(id, 'ready'); }
+async function markServed(id)    { await updateStatus(id, 'served'); }
+
+async function markAllPreparing(orderId) {
+  const items = ORDERS[orderId] || [];
+  for (const item of items) {
+    if (item.status === 'pending' || item.status === 'confirmed') {
+      await updateStatus(item.order_item_id, 'preparing');
+    }
+  }
+}
+
+async function markAllServed(orderId) {
+  const items = ORDERS[orderId] || [];
+  for (const item of items) {
+    if (item.status === 'ready') {
+      await fetch(`${API}/api/orders/kds/update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_item_id: item.order_item_id, status: 'served' }),
+      });
+    }
+  }
+  beep(880,.1); setTimeout(()=>beep(1100,.15),120); setTimeout(()=>beep(1320,.2),260);
+  await fetchOrders();
+}
+
+// ══ Stats ════════════════════════════════════════════════════════════════════
+function updateStats(items) {
+  document.getElementById('stat-pending').textContent   = items.filter(i=>i.status==='pending').length;
+  document.getElementById('stat-preparing').textContent = items.filter(i=>i.status==='preparing'||i.status==='confirmed').length;
+  document.getElementById('stat-ready').textContent     = items.filter(i=>i.status==='ready').length;
+}
+
+// ══ Clock ════════════════════════════════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+// ══ Init ═════════════════════════════════════════════════════════════════════
+updateClock();
+setInterval(updateClock, 1000);
+setInterval(fetchOrders, 8000);   // poll ทุก 8 วินาที
+setInterval(renderGrid, 10000);   // อัปเดต timer ทุก 10 วินาที
+
+// Wake lock — ป้องกันหน้าจอดับ
+navigator.wakeLock?.request('screen').catch(()=>{});
+
+fetchOrders();
+</script>
+</body>
+</html>

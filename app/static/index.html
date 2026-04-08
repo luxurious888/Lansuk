@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ลานสุข — สั่งอาหาร</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Mitr:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --cream: #FDF6EC;
+    --warm:  #F5E6C8;
+    --bark:  #5C3D1E;
+    --leaf:  #3A6B35;
+    --leaf2: #5C9E55;
+    --amber: #E8913A;
+    --red:   #C0392B;
+    --text:  #2C1810;
+    --muted: #8B6F5E;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+    overscroll-behavior: none;
+  }
+  h1,h2,h3,.font-display { font-family: 'Mitr', sans-serif; }
+
+  /* Texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%235C3D1E' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  .header {
+    background: var(--bark);
+    color: white;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 12px rgba(92,61,30,.4);
+  }
+
+  /* Category pills */
+  .cat-scroll { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .cat-scroll::-webkit-scrollbar { display: none; }
+  .cat-pill {
+    white-space: nowrap;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1.5px solid #ddd;
+    background: white;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .2s;
+    flex-shrink: 0;
+  }
+  .cat-pill.active {
+    background: var(--bark);
+    color: white;
+    border-color: var(--bark);
+  }
+
+  /* Menu card */
+  .menu-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 8px rgba(92,61,30,.08);
+    transition: transform .15s, box-shadow .15s;
+    cursor: pointer;
+    position: relative;
+  }
+  .menu-card:active { transform: scale(.97); }
+  .menu-card.sold-out { opacity: .55; pointer-events: none; }
+  .sold-out-badge {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--red); color: white;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .menu-img {
+    width: 100%; aspect-ratio: 4/3;
+    object-fit: cover; background: var(--warm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+
+  /* Cart button */
+  .cart-fab {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    background: var(--leaf);
+    color: white;
+    border-radius: 999px;
+    padding: 14px 28px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 4px 24px rgba(58,107,53,.4);
+    font-family: 'Mitr', sans-serif;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all .2s;
+    min-width: 220px;
+    justify-content: space-between;
+  }
+  .cart-fab:active { transform: translateX(-50%) scale(.96); }
+  .cart-badge {
+    background: white;
+    color: var(--leaf);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  /* Bottom sheet */
+  .sheet-overlay {
+    position: fixed; inset: 0;
+    background: rgba(44,24,16,.5);
+    z-index: 60;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+  }
+  .sheet-overlay.open { opacity: 1; pointer-events: all; }
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--cream);
+    border-radius: 24px 24px 0 0;
+    z-index: 70;
+    transform: translateY(100%);
+    transition: transform .35s cubic-bezier(.32,.72,0,1);
+    max-height: 90vh;
+    display: flex; flex-direction: column;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle {
+    width: 40px; height: 4px;
+    background: #ccc; border-radius: 999px;
+    margin: 12px auto 4px;
+    flex-shrink: 0;
+  }
+  .sheet-body { overflow-y: auto; flex: 1; padding: 0 16px 24px; }
+
+  /* Modifier */
+  .mod-option {
+    display: flex; align-items: center; gap-x: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0e8dc;
+    cursor: pointer;
+  }
+  .mod-radio {
+    width: 20px; height: 20px;
+    border: 2px solid var(--muted);
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .mod-radio.selected {
+    border-color: var(--leaf);
+    background: var(--leaf);
+  }
+  .mod-radio.selected::after {
+    content: '';
+    width: 8px; height: 8px;
+    background: white;
+    border-radius: 50%;
+  }
+  .mod-check {
+    width: 20px; height: 20px;
+    border: 2px solid var(--muted);
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .mod-check.selected {
+    border-color: var(--leaf);
+    background: var(--leaf);
+  }
+
+  /* Qty control */
+  .qty-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+  }
+  .qty-btn:active { transform: scale(.88); }
+
+  /* Order status */
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; top: 80px; left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--bark);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    z-index: 100;
+    opacity: 0;
+    transition: all .3s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Loading */
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--warm);
+    border-top-color: var(--bark);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Fade in */
+  .fade-in { animation: fadeIn .4s ease both; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  .section-label {
+    font-family: 'Mitr', sans-serif;
+    color: var(--bark);
+    font-size: 18px;
+    font-weight: 500;
+    padding: 16px 0 8px;
+  }
+
+  /* Success screen */
+  .checkmark { font-size: 64px; animation: pop .5s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes pop { 0%{transform:scale(0)} 70%{transform:scale(1.2)} 100%{transform:scale(1)} }
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ══ SCREEN: LOADING ══════════════════════════════════════════════════════ -->
+<div id="screen-loading" class="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-[#FDF6EC]" style="z-index:200">
+  <div style="font-family:'Mitr',sans-serif;font-size:28px;color:var(--bark)">ลานสุข</div>
+  <div class="spinner"></div>
+  <div style="color:var(--muted);font-size:14px">กำลังโหลด...</div>
+</div>
+
+<!-- ══ SCREEN: ERROR ════════════════════════════════════════════════════════ -->
+<div id="screen-error" class="fixed inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center" style="z-index:200;display:none!important">
+  <div style="font-size:56px">⚠️</div>
+  <div style="font-family:'Mitr',sans-serif;font-size:22px;color:var(--bark)">QR หมดอายุแล้ว</div>
+  <div style="color:var(--muted);font-size:15px">กรุณาขอ QR ใหม่จากพนักงานครับ</div>
+</div>
+
+<!-- ══ SCREEN: MENU ═════════════════════════════════════════════════════════ -->
+<div id="screen-menu" style="display:none;padding-bottom:100px">
+
+  <!-- Header -->
+  <div class="header px-4 py-3">
+    <div class="flex items-center justify-between">
+      <div>
+        <div style="font-family:'Mitr',sans-serif;font-size:20px;letter-spacing:.5px">ลานสุข 🌿</div>
+        <div style="font-size:12px;opacity:.75" id="table-label">โต๊ะ —</div>
+      </div>
+      <button onclick="showOrders()" style="background:rgba(255,255,255,.15);border-radius:999px;padding:6px 14px;font-size:13px;color:white;font-family:'Sarabun',sans-serif">
+        📋 ออเดอร์ฉัน
+      </button>
+    </div>
+  </div>
+
+  <!-- Category tabs -->
+  <div style="background:white;border-bottom:1px solid #f0e8dc;position:sticky;top:60px;z-index:30">
+    <div class="cat-scroll flex gap-2 px-4 py-3" id="cat-tabs"></div>
+  </div>
+
+  <!-- Menu grid -->
+  <div class="px-4 pt-2 relative" style="z-index:1" id="menu-content"></div>
+
+</div>
+
+<!-- ══ SCREEN: ORDER SUCCESS ════════════════════════════════════════════════ -->
+<div id="screen-success" style="display:none;padding:40px 24px;text-align:center">
+  <div style="margin-top:60px">
+    <div class="checkmark">✅</div>
+    <div style="font-family:'Mitr',sans-serif;font-size:24px;color:var(--bark);margin-top:16px">สั่งอาหารสำเร็จ!</div>
+    <div style="color:var(--muted);margin-top:8px;font-size:15px">ครัวได้รับออเดอร์แล้ว กรุณารอสักครู่นะครับ 🙏</div>
+    <button onclick="backToMenu()" style="margin-top:32px;background:var(--leaf);color:white;border-radius:999px;padding:14px 36px;font-family:'Mitr',sans-serif;font-size:16px;display:inline-block">
+      สั่งเพิ่ม
+    </button>
+  </div>
+</div>
+
+<!-- Cart FAB -->
+<div id="cart-fab" class="cart-fab" onclick="showCart()" style="display:none">
+  <span>🛒 ดูตะกร้า</span>
+  <span>
+    <span id="cart-count" class="cart-badge">0</span>
+    <span id="cart-total-fab" style="margin-left:8px;font-size:14px">฿0</span>
+  </span>
+</div>
+
+<!-- ══ SHEET: ITEM DETAIL ═══════════════════════════════════════════════════ -->
+<div class="sheet-overlay" id="overlay-item" onclick="closeItemSheet()"></div>
+<div class="sheet" id="sheet-item">
+  <div class="sheet-handle"></div>
+  <div class="sheet-body" id="sheet-item-body"></div>
+</div>
+
+<!-- ══ SHEET: CART ══════════════════════════════════════════════════════════ -->
+<div class="sheet-overlay" id="overlay-cart" onclick="closeCartSheet()"></div>
+<div class="sheet" id="sheet-cart">
+  <div class="sheet-handle"></div>
+  <div class="sheet-body" id="sheet-cart-body"></div>
+</div>
+
+<!-- ══ SHEET: MY ORDERS ═════════════════════════════════════════════════════ -->
+<div class="sheet-overlay" id="overlay-orders" onclick="closeOrdersSheet()"></div>
+<div class="sheet" id="sheet-orders">
+  <div class="sheet-handle"></div>
+  <div class="sheet-body" id="sheet-orders-body"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════════════════════════
+const API = ''; // same origin   // same origin
+let SESSION_TOKEN = '';
+let SESSION_ID    = 0;
+let TABLE_NUMBER  = 0;
+let CATEGORIES    = [];
+let MENU_ITEMS    = [];
+let ACTIVE_CAT    = null;
+let CART          = [];   // [{menuItem, qty, modifiers:[], note}]
+let CURRENT_ITEM  = null;
+let CURRENT_MODS  = {};   // groupId → [optionId]
+let CURRENT_QTY   = 1;
+let CURRENT_NOTE  = '';
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Init
+// ══════════════════════════════════════════════════════════════════════════════
+async function init() {
+  // ดึง token จาก URL ?token=...
+  const params = new URLSearchParams(location.search);
+  SESSION_TOKEN = params.get('token') || '';
+
+  if (!SESSION_TOKEN) {
+    showError(); return;
+  }
+
+  try {
+    // ตรวจ QR token
+    const res = await fetch(`${API}/api/pos/qr/verify?token=${encodeURIComponent(SESSION_TOKEN)}`, {credentials:"include"});
+    if (!res.ok) { showError(); return; }
+    const data = await res.json();
+    SESSION_ID   = data.session_id;
+    TABLE_NUMBER = data.table_number;
+
+    document.getElementById('table-label').textContent = `โต๊ะ ${TABLE_NUMBER} | ${data.guest_count} ท่าน`;
+
+    // โหลด categories + menu พร้อมกัน
+    const [catRes, menuRes] = await Promise.all([
+      fetch(`${API}/api/admin/categories`),
+      fetch(`${API}/api/admin/menu`),
+    ]);
+    CATEGORIES = await catRes.json();
+    MENU_ITEMS = await menuRes.json();
+
+    renderCategories();
+    renderMenu();
+    showScreen('menu');
+  } catch(e) {
+    console.error(e);
+    showError();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Render
+// ══════════════════════════════════════════════════════════════════════════════
+function renderCategories() {
+  const container = document.getElementById('cat-tabs');
+  const cats = [{id: null, name: '🍽️ ทั้งหมด'}, ...CATEGORIES];
+  container.innerHTML = cats.map(c => `
+    <button class="cat-pill ${c.id === ACTIVE_CAT ? 'active' : ''}"
+      onclick="selectCat(${c.id})">${c.name}</button>
+  `).join('');
+}
+
+function selectCat(id) {
+  ACTIVE_CAT = id;
+  renderCategories();
+  renderMenu();
+}
+
+function renderMenu() {
+  const items = ACTIVE_CAT
+    ? MENU_ITEMS.filter(i => i.category_id === ACTIVE_CAT)
+    : MENU_ITEMS;
+
+  // group by category
+  const grouped = {};
+  items.forEach(item => {
+    const cat = CATEGORIES.find(c => c.id === item.category_id);
+    const key = cat ? cat.name : 'อื่นๆ';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(item);
+  });
+
+  const container = document.getElementById('menu-content');
+  if (items.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:60px 0;color:var(--muted)">ไม่พบเมนู</div>`;
+    return;
+  }
+
+  container.innerHTML = Object.entries(grouped).map(([catName, catItems]) => `
+    <div class="section-label">${catName}</div>
+    <div class="flex flex-col gap-2 fade-in">
+      ${catItems.map(item => menuCard(item)).join('')}
+    </div>
+  `).join('');
+}
+
+function menuCard(item) {
+  const emoji = getEmoji(item.name);
+  return `
+    <div class="menu-card ${item.is_sold_out ? 'sold-out' : ''}"
+      onclick="openItem(${item.id})"
+      style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px">
+      ${item.is_sold_out ? '<span class="sold-out-badge">หมด</span>' : ''}
+      <div style="width:64px;height:64px;border-radius:10px;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden">
+        ${item.image_url
+          ? `<img src="${item.image_url}" style="width:100%;height:100%;object-fit:cover">`
+          : `<span>${emoji}</span>`}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:15px;line-height:1.3">${item.name}</div>
+        ${item.description ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.description}</div>` : ''}
+      </div>
+      <div style="font-family:'Mitr',sans-serif;color:var(--amber);font-size:17px;font-weight:500;flex-shrink:0">
+        ฿${parseFloat(item.price).toFixed(0)}
+      </div>
+    </div>
+  `;
+}
+
+function getEmoji(name) {
+  const map = {'ข้าว':'🍚','ผัด':'🍳','ต้ม':'🍲','แกง':'🥘','ส้ม':'🥗','ยำ':'🥗','ปลา':'🐟','หมู':'🥩','ไก่':'🍗','กุ้ง':'🍤','เบียร์':'🍺','น้ำ':'💧','ชา':'🍵','กาแฟ':'☕','น้ำผล':'🧃','ไข่':'🥚','บะหมี่':'🍜','ข้าวผัด':'🍳'};
+  for (const [k, v] of Object.entries(map)) if (name.includes(k)) return v;
+  return '🍽️';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Item Sheet
+// ══════════════════════════════════════════════════════════════════════════════
+function openItem(itemId) {
+  CURRENT_ITEM = MENU_ITEMS.find(i => i.id === itemId);
+  if (!CURRENT_ITEM) return;
+  CURRENT_QTY  = 1;
+  CURRENT_NOTE = '';
+  CURRENT_MODS = {};
+
+  // default: เลือก option แรกของ required groups
+  (CURRENT_ITEM.modifier_groups || []).forEach(grp => {
+    CURRENT_MODS[grp.id] = grp.required && grp.options.length > 0
+      ? [grp.options[0].id] : [];
+  });
+
+  renderItemSheet();
+  openSheet('item');
+}
+
+function renderItemSheet() {
+  const item = CURRENT_ITEM;
+  const emoji = getEmoji(item.name);
+  const groups = item.modifier_groups || [];
+
+  document.getElementById('sheet-item-body').innerHTML = `
+    <!-- Image -->
+    <div style="width:100%;aspect-ratio:16/9;background:var(--warm);border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+      ${item.image_url
+        ? `<img src="${item.image_url}" style="width:100%;height:100%;object-fit:cover">`
+        : `<span style="font-size:64px">${emoji}</span>`}
+    </div>
+
+    <!-- Info -->
+    <div style="font-family:'Mitr',sans-serif;font-size:22px;font-weight:600">${item.name}</div>
+    ${item.description ? `<div style="color:var(--muted);margin-top:4px;font-size:14px">${item.description}</div>` : ''}
+    <div style="font-family:'Mitr',sans-serif;color:var(--amber);font-size:20px;margin-top:8px">฿${parseFloat(item.price).toFixed(0)}</div>
+
+    <!-- Modifiers -->
+    ${groups.map(grp => `
+      <div style="margin-top:20px">
+        <div style="font-weight:600;font-size:15px;margin-bottom:4px">
+          ${grp.name}
+          ${grp.required ? '<span style="color:var(--red);font-size:12px;margin-left:4px">*จำเป็น</span>' : ''}
+        </div>
+        ${grp.options.map(opt => {
+          const isMulti = grp.max_select > 1;
+          const selected = (CURRENT_MODS[grp.id] || []).includes(opt.id);
+          return `
+            <div class="mod-option" onclick="toggleMod(${grp.id}, ${opt.id}, ${isMulti ? 1 : 0}, ${grp.max_select})">
+              <div class="${isMulti ? 'mod-check' : 'mod-radio'} ${selected ? 'selected' : ''}"></div>
+              <div style="flex:1;margin-left:12px">${opt.name}</div>
+              ${parseFloat(opt.extra_price) > 0
+                ? `<div style="color:var(--muted);font-size:13px">+฿${parseFloat(opt.extra_price).toFixed(0)}</div>` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `).join('')}
+
+    <!-- Note -->
+    <div style="margin-top:20px">
+      <div style="font-weight:600;font-size:15px;margin-bottom:8px">หมายเหตุ</div>
+      <input id="item-note" type="text" placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย..."
+        value="${CURRENT_NOTE}"
+        oninput="CURRENT_NOTE=this.value"
+        style="width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;font-family:'Sarabun',sans-serif;outline:none;background:white">
+    </div>
+
+    <!-- Qty + Add -->
+    <div style="display:flex;align-items:center;gap:16px;margin-top:24px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px;background:var(--warm);border-radius:999px;padding:4px 4px">
+        <div class="qty-btn" onclick="changeQty(-1)" style="background:white;color:var(--bark)">−</div>
+        <div id="qty-display" style="font-family:'Mitr',sans-serif;font-size:18px;min-width:28px;text-align:center">${CURRENT_QTY}</div>
+        <div class="qty-btn" onclick="changeQty(1)" style="background:var(--bark);color:white">+</div>
+      </div>
+      <button onclick="addToCart()" style="flex:1;background:var(--leaf);color:white;border-radius:999px;padding:14px;font-family:'Mitr',sans-serif;font-size:16px">
+        เพิ่มใส่ตะกร้า — ฿<span id="add-price">${calcItemTotal().toFixed(0)}</span>
+      </button>
+    </div>
+  `;
+}
+
+function toggleMod(groupId, optionId, isMulti, maxSelect) {
+  if (!CURRENT_MODS[groupId]) CURRENT_MODS[groupId] = [];
+  const arr = CURRENT_MODS[groupId];
+  const idx = arr.indexOf(optionId);
+
+  if (isMulti) {
+    if (idx >= 0) arr.splice(idx, 1);
+    else if (arr.length < maxSelect) arr.push(optionId);
+  } else {
+    CURRENT_MODS[groupId] = [optionId];
+  }
+  renderItemSheet();
+}
+
+function changeQty(delta) {
+  CURRENT_QTY = Math.max(1, CURRENT_QTY + delta);
+  renderItemSheet();
+}
+
+function calcItemTotal() {
+  let base = parseFloat(CURRENT_ITEM.price);
+  Object.entries(CURRENT_MODS).forEach(([gid, opts]) => {
+    const grp = CURRENT_ITEM.modifier_groups.find(g => g.id == gid);
+    if (!grp) return;
+    opts.forEach(oid => {
+      const opt = grp.options.find(o => o.id == oid);
+      if (opt) base += parseFloat(opt.extra_price);
+    });
+  });
+  return base * CURRENT_QTY;
+}
+
+function addToCart() {
+  // validate required
+  for (const grp of (CURRENT_ITEM.modifier_groups || [])) {
+    if (grp.required && (!CURRENT_MODS[grp.id] || CURRENT_MODS[grp.id].length === 0)) {
+      showToast(`กรุณาเลือก ${grp.name}`); return;
+    }
+  }
+
+  const modifiers = [];
+  Object.entries(CURRENT_MODS).forEach(([gid, opts]) => {
+    const grp = CURRENT_ITEM.modifier_groups.find(g => g.id == gid);
+    if (!grp) return;
+    opts.forEach(oid => {
+      const opt = grp.options.find(o => o.id == oid);
+      if (opt) modifiers.push({ option_id: opt.id, name: opt.name, extra_price: opt.extra_price });
+    });
+  });
+
+  CART.push({
+    menuItem: CURRENT_ITEM,
+    qty: CURRENT_QTY,
+    modifiers,
+    note: CURRENT_NOTE,
+  });
+
+  closeSheet('item');
+  updateCartFab();
+  showToast(`เพิ่ม ${CURRENT_ITEM.name} ×${CURRENT_QTY} แล้ว ✓`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Cart Sheet
+// ══════════════════════════════════════════════════════════════════════════════
+function showCart() {
+  if (CART.length === 0) { showToast('ตะกร้าว่างอยู่ครับ'); return; }
+  renderCartSheet();
+  openSheet('cart');
+}
+
+function renderCartSheet() {
+  const total = CART.reduce((s, e) => {
+    let base = parseFloat(e.menuItem.price);
+    e.modifiers.forEach(m => base += parseFloat(m.extra_price));
+    return s + base * e.qty;
+  }, 0);
+
+  document.getElementById('sheet-cart-body').innerHTML = `
+    <div style="font-family:'Mitr',sans-serif;font-size:20px;padding:8px 0 16px">🛒 ตะกร้าสินค้า</div>
+    ${CART.map((entry, idx) => {
+      let itemTotal = parseFloat(entry.menuItem.price);
+      entry.modifiers.forEach(m => itemTotal += parseFloat(m.extra_price));
+      itemTotal *= entry.qty;
+      return `
+        <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f0e8dc;align-items:flex-start">
+          <div style="font-size:28px">${getEmoji(entry.menuItem.name)}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:15px">${entry.menuItem.name} ×${entry.qty}</div>
+            ${entry.modifiers.length ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${entry.modifiers.map(m=>m.name).join(', ')}</div>` : ''}
+            ${entry.note ? `<div style="font-size:12px;color:var(--muted);font-style:italic">📝 ${entry.note}</div>` : ''}
+            <div style="font-family:'Mitr',sans-serif;color:var(--amber);margin-top:4px">฿${itemTotal.toFixed(0)}</div>
+          </div>
+          <button onclick="removeCart(${idx})" style="color:var(--red);font-size:18px;padding:4px">✕</button>
+        </div>
+      `;
+    }).join('')}
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;font-family:'Mitr',sans-serif;font-size:18px">
+      <span>รวมทั้งหมด</span>
+      <span style="color:var(--leaf);font-size:22px">฿${total.toFixed(0)}</span>
+    </div>
+
+    <button onclick="placeOrder()"
+      style="width:100%;background:var(--leaf);color:white;border-radius:999px;padding:16px;font-family:'Mitr',sans-serif;font-size:17px;margin-top:8px">
+      ✅ สั่งอาหารเลย
+    </button>
+    <button onclick="closeSheet('cart')"
+      style="width:100%;background:transparent;color:var(--muted);padding:12px;font-size:14px;margin-top:4px">
+      กลับไปเลือกเมนู
+    </button>
+  `;
+}
+
+function removeCart(idx) {
+  CART.splice(idx, 1);
+  updateCartFab();
+  if (CART.length === 0) { closeSheet('cart'); return; }
+  renderCartSheet();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Place Order
+// ══════════════════════════════════════════════════════════════════════════════
+async function placeOrder() {
+  const items = CART.map(entry => ({
+    menu_item_id: entry.menuItem.id,
+    quantity:     entry.qty,
+    note:         entry.note || null,
+    modifiers:    entry.modifiers.map(m => ({ option_id: m.option_id })),
+  }));
+
+  try {
+    const res = await fetch(`${API}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_token: SESSION_TOKEN, items }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(err.detail || 'เกิดข้อผิดพลาด'); return;
+    }
+
+    CART = [];
+    updateCartFab();
+    closeSheet('cart');
+    showScreen('success');
+
+    setTimeout(() => showScreen('menu'), 4000);
+  } catch(e) {
+    showToast('ไม่สามารถเชื่อมต่อได้');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  My Orders Sheet
+// ══════════════════════════════════════════════════════════════════════════════
+async function showOrders() {
+  document.getElementById('sheet-orders-body').innerHTML = `
+    <div style="font-family:'Mitr',sans-serif;font-size:20px;padding:8px 0 16px">📋 ออเดอร์ของฉัน</div>
+    <div style="text-align:center;padding:30px"><div class="spinner" style="margin:auto"></div></div>
+  `;
+  openSheet('orders');
+
+  try {
+    const res = await fetch(`${API}/api/orders/session/${SESSION_ID}`);
+    const orders = await res.json();
+
+    if (!orders.length) {
+      document.getElementById('sheet-orders-body').innerHTML = `
+        <div style="font-family:'Mitr',sans-serif;font-size:20px;padding:8px 0 16px">📋 ออเดอร์ของฉัน</div>
+        <div style="text-align:center;padding:40px;color:var(--muted)">ยังไม่มีออเดอร์</div>
+      `;
+      return;
+    }
+
+    const statusMap = {
+      pending:   { label: 'รอดำเนินการ', color: '#E8913A', dot: '#E8913A' },
+      confirmed: { label: 'รับออเดอร์แล้ว', color: '#3A6B35', dot: '#5C9E55' },
+      preparing: { label: 'กำลังปรุง', color: '#2980b9', dot: '#3498db' },
+      ready:     { label: 'พร้อมเสิร์ฟ', color: '#27ae60', dot: '#2ecc71' },
+      served:    { label: 'เสิร์ฟแล้ว', color: '#7f8c8d', dot: '#95a5a6' },
+      cancelled: { label: 'ยกเลิก', color: '#c0392b', dot: '#e74c3c' },
+    };
+
+    document.getElementById('sheet-orders-body').innerHTML = `
+      <div style="font-family:'Mitr',sans-serif;font-size:20px;padding:8px 0 16px">📋 ออเดอร์ของฉัน</div>
+      ${orders.map(order => `
+        <div style="background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-weight:600;font-size:14px">ออเดอร์ #${order.id}</span>
+            <span style="font-size:12px;color:${(statusMap[order.status]||{}).color||'#666'}">
+              <span class="status-dot" style="background:${(statusMap[order.status]||{}).dot||'#ccc'}"></span>
+              ${(statusMap[order.status]||{label:order.status}).label}
+            </span>
+          </div>
+          ${order.items.map(item => `
+            <div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px dashed #f0e8dc">
+              <span>${item.quantity}× ${MENU_ITEMS.find(m=>m.id===item.menu_item_id)?.name || "รายการ #"+item.menu_item_id}</span>
+              <span style="color:var(--muted)">฿${parseFloat(item.line_total).toFixed(0)}</span>
+            </div>
+          `).join('')}
+          ${order.total ? `<div style="text-align:right;margin-top:8px;font-family:'Mitr',sans-serif;color:var(--leaf)">รวม ฿${parseFloat(order.total).toFixed(0)}</div>` : ''}
+        </div>
+      `).join('')}
+    `;
+  } catch(e) {
+    showToast('โหลดข้อมูลไม่ได้');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+function updateCartFab() {
+  const fab   = document.getElementById('cart-fab');
+  const count = CART.reduce((s, e) => s + e.qty, 0);
+  const total = CART.reduce((s, e) => {
+    let base = parseFloat(e.menuItem.price);
+    e.modifiers.forEach(m => base += parseFloat(m.extra_price));
+    return s + base * e.qty;
+  }, 0);
+  document.getElementById('cart-count').textContent = count;
+  document.getElementById('cart-total-fab').textContent = `฿${total.toFixed(0)}`;
+  fab.style.display = count > 0 ? 'flex' : 'none';
+}
+
+function openSheet(name) {
+  document.getElementById(`overlay-${name}`).classList.add('open');
+  document.getElementById(`sheet-${name}`).classList.add('open');
+}
+function closeSheet(name) {
+  document.getElementById(`overlay-${name}`).classList.remove('open');
+  document.getElementById(`sheet-${name}`).classList.remove('open');
+}
+function closeItemSheet()   { closeSheet('item'); }
+function closeCartSheet()   { closeSheet('cart'); }
+function closeOrdersSheet() { closeSheet('orders'); }
+
+function showScreen(name) {
+  ['loading','error','menu','success'].forEach(s => {
+    const el = document.getElementById(`screen-${s}`);
+    if (!el) return;
+    el.style.display = s === name ? (s === 'loading' ? 'flex' : 'block') : 'none';
+  });
+  if (name === 'menu') document.getElementById('cart-fab').style.display = CART.length ? 'flex' : 'none';
+}
+
+function showError() {
+  document.getElementById('screen-loading').style.display = 'none';
+  document.getElementById('screen-error').style.display = 'flex';
+}
+
+function backToMenu() {
+  showScreen('menu');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
