@@ -170,3 +170,24 @@ async def delete_menu_item(item_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="ไม่พบเมนูนี้")
     item.soft_delete()
     return {"message": f"ลบ '{item.name}' สำเร็จ"}
+
+@router.post("/migrate-db")
+async def migrate_db(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE table_sessions ADD COLUMN customer_name TEXT",
+        "ALTER TABLE orders ADD COLUMN discount_amt REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN vat_amt REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN subtotal REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'cash'",
+        "ALTER TABLE orders ADD COLUMN paid_at DATETIME",
+    ]
+    results = []
+    for sql in migrations:
+        try:
+            await db.execute(text(sql))
+            results.append('OK: ' + sql[:50])
+        except Exception as e:
+            results.append('SKIP: ' + str(e)[:60])
+    await db.commit()
+    return {'results': results}
