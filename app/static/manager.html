@@ -402,7 +402,11 @@ function printQR(u){
   h+='img{width:250px;height:250px}@media print{button{display:none}}</style>';
   h+='</head><body><h2>ลานสุข</h2><p>สแกนเพื่อสั่งอาหาร</p>';
   h+='<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(u)+'">';
-  h+='<p>'+u+'</p><button onclick="window.print()">🖨️ ปริ้น</button>
+  h+='<p>'+u+'</p><button onclick="window.print()">🖨️ ปริ้น</button></body></html>';
+  w.document.write(h);
+  w.document.close();
+  setTimeout(function(){w.print();},500);
+}
 <div class="mo" id="mo-so2">
   <div class="md" style="max-width:520px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
