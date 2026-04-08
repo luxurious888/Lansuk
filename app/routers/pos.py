@@ -218,20 +218,24 @@ async def list_bills(
     date_str: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """ดูบิลทั้งหมด พร้อมสถานะชำระเงิน"""
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
-    q = select(TableSession).options(selectinload(TableSession.orders))
+    from app.models import Order, OrderItem
+    q = (
+        select(TableSession)
+        .options(
+            selectinload(TableSession.orders)
+            .selectinload(Order.items)
+        )
+        .order_by(TableSession.opened_at.desc())
+    )
     if paid is not None:
         q = q.where(TableSession.is_paid == paid)
-    result = await db.execute(q.order_by(TableSession.opened_at.desc()))
+    result = await db.execute(q)
     sessions = result.scalars().all()
-
     bills = []
     for s in sessions:
-        total = sum(
-            float(o.total or 0) for o in s.orders if o.total
-        )
+        total = sum(float(o.total or 0) for o in s.orders)
         items_count = sum(len(o.items) for o in s.orders)
         bills.append({
             "session_id":    s.id,
