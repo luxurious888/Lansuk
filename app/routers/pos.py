@@ -215,7 +215,24 @@ async def set_customer_name(session_id: int, body: dict, db: AsyncSession = Depe
 
 
 @router.get("/bills")
-async def list_bills(
+async def list_bills_wrapper(
+    paid: bool | None = None,
+    date_str: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Wrapper ที่จับ error ทั้งหมดแล้ว return เป็น JSON เพื่อ debug"""
+    try:
+        return await _list_bills_impl(paid, date_str, db)
+    except Exception as e:
+        import traceback
+        return {
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc().split("\n")[-15:],
+        }
+
+
+async def _list_bills_impl(
     paid: bool | None = None,
     date_str: str | None = None,
     db: AsyncSession = Depends(get_db),
