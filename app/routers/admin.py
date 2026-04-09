@@ -191,3 +191,11 @@ async def migrate_db(db: AsyncSession = Depends(get_db)):
             results.append('SKIP: ' + str(e)[:60])
     await db.commit()
     return {'results': results}
+
+
+@router.post("/seed")
+async def run_seed():
+    """รัน seed script ผ่าน HTTP"""
+    from app.seed import seed
+    result = await seed()
+    return {"message": "seed สำเร็จ", "created": result}
