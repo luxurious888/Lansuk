@@ -289,11 +289,6 @@ class TableSession(Base):
     closed_at:   Mapped[datetime | None]= mapped_column(DateTime(timezone=True), nullable=True)
     is_paid:     Mapped[bool]           = mapped_column(Boolean, nullable=False, default=False)
     customer_name: Mapped[str | None]   = mapped_column(String(120), nullable=True)  # ชื่อลูกค้า/บิล
-    payment_status: Mapped[str]         = mapped_column(String(20), nullable=False, default="active")  # active | pending_payment | paid
-    pending_payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    pending_food_disc:  Mapped[float]   = mapped_column(Float, default=0)
-    pending_total_disc: Mapped[float]   = mapped_column(Float, default=0)
-    pending_fixed_disc: Mapped[float]   = mapped_column(Float, default=0)
 
     table:  Mapped[DiningTable]  = relationship(back_populates="sessions")
     orders: Mapped[list[Order]]  = relationship(back_populates="session")

@@ -334,18 +334,37 @@ async def checkout_with_discount(body: dict, db: AsyncSession = Depends(get_db))
     total_discount_pct = Decimal(str(body.get("total_discount_pct", 0)))
     fixed_discount     = Decimal(str(body.get("fixed_discount", 0)))
 
-    # ตั้ง session เป็น pending_payment — ยังไม่ปิด
-    session.payment_status         = "pending_payment"
-    session.pending_payment_method = body.get("payment_method", "cash")
-    session.pending_food_disc      = float(food_discount_pct)
-    session.pending_total_disc     = float(total_discount_pct)
-    session.pending_fixed_disc     = float(fixed_discount)
+    for order in session.orders:
+        if order.status == OrderStatus.CANCELLED:
+            continue
+        subtotal = Decimal(str(sum(float(i.line_total) for i in order.items)))
+        food_disc = subtotal * food_discount_pct / 100
+        total_disc = (subtotal - food_disc) * total_discount_pct / 100
+        all_disc = food_disc + total_disc + fixed_discount
 
-    return {
-        "message":        "เช็คบิลสำเร็จ — รอลูกค้าชำระ",
-        "session_id":     session_id,
-        "payment_status": "pending_payment",
-    }
+        order.subtotal       = subtotal
+        order.discount_amt   = all_disc
+        order.vat_amt        = (subtotal - all_disc) * Decimal("0.07")
+        order.total          = subtotal - all_disc + order.vat_amt
+        order.payment_method = PaymentMethod(body.get("payment_method", "cash"))
+        order.paid_at        = datetime.now(timezone.utc)
+
+    session.closed_at = datetime.now(timezone.utc)
+    session.is_paid   = True
+
+    # ถ้าโต๊ะไม่มี session อื่นที่ active → เปลี่ยนเป็น CLEANING
+    others = await db.execute(
+        select(TableSession)
+        .where(TableSession.table_id == session.table_id)
+        .where(TableSession.closed_at.is_(None))
+        .where(TableSession.id != session.id)
+    )
+    if not others.scalars().first():
+        table = await db.get(DiningTable, session.table_id)
+        if table:
+            table.status = TableStatus.CLEANING
+
+    return {"message": "ชำระเงินสำเร็จ", "session_id": session_id}
 
 
 
@@ -589,11 +608,8 @@ async def cancel_order_item(item_id: int, body: dict, db: AsyncSession = Depends
     if not item:
         raise HTTPException(status_code=404, detail="ไม่พบรายการนี้")
 
-    if item.order and item.order.session:
-        if item.order.session.is_paid:
-            raise HTTPException(status_code=400, detail="บิลชำระแล้ว ไม่สามารถยกเลิกได้")
-        if getattr(item.order.session, "payment_status", "active") == "pending_payment":
-            raise HTTPException(status_code=400, detail="บิลรอชำระ — กรุณายกเลิกเช็คบิลก่อน")
+    if item.order and item.order.session and item.order.session.is_paid:
+        raise HTTPException(status_code=400, detail="บิลชำระแล้ว ไม่สามารถยกเลิกได้")
 
     current_cancelled = item.cancelled_qty or 0
     remaining = item.quantity - current_cancelled
@@ -618,87 +634,3 @@ async def cancel_order_item(item_id: int, body: dict, db: AsyncSession = Depends
         "cancelled_qty":  item.cancelled_qty,
         "remaining_qty":  item.quantity - item.cancelled_qty,
     }
-
-
-# ── POST /api/pos/checkout/confirm ────────────────────────────────────────────
-@router.post("/checkout/confirm")
-async def checkout_confirm(body: dict, db: AsyncSession = Depends(get_db)):
-    """ยืนยันรับเงินจริง — ปิด session"""
-    from datetime import datetime, timezone
-    from decimal import Decimal
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-    from app.models import Order, OrderItem, OrderStatus, PaymentMethod, TableStatus
-
-    session_id = body["session_id"]
-    res = await db.execute(
-        select(TableSession)
-        .where(TableSession.id == session_id)
-        .options(
-            selectinload(TableSession.orders)
-            .selectinload(Order.items)
-            .selectinload(OrderItem.modifiers)
-        )
-    )
-    session = res.scalar_one_or_none()
-    if not session:
-        raise HTTPException(status_code=404, detail="ไม่พบ session")
-    if getattr(session, "payment_status", "active") != "pending_payment":
-        raise HTTPException(status_code=400, detail="session นี้ยังไม่ได้เช็คบิล")
-
-    food_pct  = Decimal(str(session.pending_food_disc or 0))
-    total_pct = Decimal(str(session.pending_total_disc or 0))
-    fixed     = Decimal(str(session.pending_fixed_disc or 0))
-    pm        = session.pending_payment_method or "cash"
-
-    for order in session.orders:
-        if order.status == OrderStatus.CANCELLED:
-            continue
-        subtotal = Decimal(str(sum(float(i.line_total) for i in order.items)))
-        food_disc  = subtotal * food_pct / 100
-        total_disc = (subtotal - food_disc) * total_pct / 100
-        all_disc   = food_disc + total_disc + fixed
-
-        order.subtotal       = subtotal
-        order.discount_amt   = all_disc
-        order.vat_amt        = (subtotal - all_disc) * Decimal("0.07")
-        order.total          = subtotal - all_disc + order.vat_amt
-        order.payment_method = PaymentMethod(pm)
-        order.paid_at        = datetime.now(timezone.utc)
-
-    session.closed_at      = datetime.now(timezone.utc)
-    session.is_paid        = True
-    session.payment_status = "paid"
-
-    others = await db.execute(
-        select(TableSession)
-        .where(TableSession.table_id == session.table_id)
-        .where(TableSession.closed_at.is_(None))
-        .where(TableSession.id != session.id)
-    )
-    if not others.scalars().first():
-        table = await db.get(DiningTable, session.table_id)
-        if table:
-            table.status = TableStatus.CLEANING
-
-    return {"message": "ยืนยันรับเงินสำเร็จ", "session_id": session_id}
-
-
-# ── POST /api/pos/checkout/cancel ─────────────────────────────────────────────
-@router.post("/checkout/cancel")
-async def checkout_cancel(body: dict, db: AsyncSession = Depends(get_db)):
-    """ยกเลิกการเช็คบิล — กลับเป็น active"""
-    session_id = body["session_id"]
-    session = await db.get(TableSession, session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="ไม่พบ session")
-    if getattr(session, "payment_status", "active") != "pending_payment":
-        raise HTTPException(status_code=400, detail="session นี้ไม่ได้รอชำระ")
-
-    session.payment_status         = "active"
-    session.pending_payment_method = None
-    session.pending_food_disc      = 0
-    session.pending_total_disc     = 0
-    session.pending_fixed_disc     = 0
-
-    return {"message": "ยกเลิกเช็คบิลสำเร็จ", "session_id": session_id}

@@ -33,12 +33,7 @@ async def _run_migrations():
         "ALTER TABLE order_items ADD COLUMN cancelled_qty INTEGER DEFAULT 0",
         "ALTER TABLE order_items ADD COLUMN cancelled_at DATETIME",
         "ALTER TABLE order_items ADD COLUMN cancel_reason TEXT",
-                "ALTER TABLE order_items ADD COLUMN cancelled_by TEXT",
-        "ALTER TABLE table_sessions ADD COLUMN payment_status TEXT DEFAULT 'active'",
-        "ALTER TABLE table_sessions ADD COLUMN pending_payment_method TEXT",
-        "ALTER TABLE table_sessions ADD COLUMN pending_food_disc REAL DEFAULT 0",
-        "ALTER TABLE table_sessions ADD COLUMN pending_total_disc REAL DEFAULT 0",
-        "ALTER TABLE table_sessions ADD COLUMN pending_fixed_disc REAL DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN cancelled_by TEXT",
     ]
     print(f"[migrate] db_file={db_file}")
     try:

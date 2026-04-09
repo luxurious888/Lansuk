@@ -50,9 +50,6 @@ async def place_order(
     if not session:
         raise HTTPException(status_code=404, detail="Session ไม่พบหรือปิดแล้ว")
 
-    if getattr(session, "payment_status", "active") == "pending_payment":
-        raise HTTPException(status_code=400, detail="โต๊ะนี้รอชำระเงินอยู่ — กรุณายกเลิกเช็คบิลก่อนสั่งเพิ่ม")
-
     # ── สร้าง Order ───────────────────────────────────────────────────────────
     order = Order(session_id=session.id)
     db.add(order)
