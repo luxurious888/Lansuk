@@ -46,6 +46,7 @@
 .toast{position:fixed;bottom:24px;right:24px;background:var(--bark);color:white;padding:12px 20px;border-radius:12px;font-size:14px;z-index:200;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;}
 .toast.show{opacity:1;transform:none;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="toast" id="toast"></div>
@@ -154,15 +155,28 @@
 </div>
 
 <div id="page-report" style="padding:24px;display:none">
-  <div class="fd" style="font-size:19px;color:var(--bark);margin-bottom:14px">📊 รายงานยอดขาย</div>
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    <input type="date" id="rf" class="inp" style="width:148px">
-    <input type="date" id="rt" class="inp" style="width:148px">
-    <button onclick="loadReport()" style="background:var(--bark);color:white;border-radius:10px;padding:8px 16px;font-family:'Mitr',sans-serif;font-size:13px;cursor:pointer;border:none">โหลด</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div class="fd" style="font-size:19px;color:var(--bark)">📊 รายงานปิดร้าน</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="tbt active" onclick="quickDate('today')" id="qd-today">วันนี้</button>
+      <button class="tbt" onclick="quickDate('yesterday')" id="qd-yesterday">เมื่อวาน</button>
+      <button class="tbt" onclick="quickDate('week')" id="qd-week">7 วัน</button>
+      <button class="tbt" onclick="quickDate('month')" id="qd-month">30 วัน</button>
+    </div>
   </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <input type="date" id="rf" class="inp" style="width:148px">
+    <span style="color:var(--muted)">ถึง</span>
+    <input type="date" id="rt" class="inp" style="width:148px">
+    <button onclick="loadReport()" style="background:var(--bark);color:white;border-radius:10px;padding:8px 16px;font-family:Mitr,sans-serif;font-size:13px;cursor:pointer;border:none">🔄 โหลด</button>
+    <div style="flex:1"></div>
+    <button onclick="exportReport('csv')" style="background:#16a34a;color:white;border-radius:10px;padding:8px 14px;font-size:12px;cursor:pointer;border:none">📄 CSV</button>
+    <button onclick="exportReport('pdf')" style="background:#dc2626;color:white;border-radius:10px;padding:8px 14px;font-size:12px;cursor:pointer;border:none">📑 PDF</button>
+  </div>
+
   <div id="rpt"></div>
 </div>
-
 </div>
 </div>
 
@@ -376,7 +390,8 @@ async function delTbl(id){if(!confirm('ยืนยันลบโต๊ะ?'))r
 
 function printQR(u){
   var w=window.open('','_blank','width=400,height=500');
-  var h='<!DOCTYPE html><html><head><title>QR</title><style>body{font-family:sans-serif;text-align:center;padding:30px}img{width:250px;height:250px}@media print{button{display:none}}</style></head><body>';
+  var h='<!DOCTYPE html><html><head><title>QR</title><style>body{font-family:sans-serif;text-align:center;padding:30px}img{width:250px;height:250px}@media print{button{display:none}}</style><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head><body>';
   h+='<h2>ลานสุข</h2><p>สแกนเพื่อสั่งอาหาร</p>';
   h+='<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(u)+'">';
   h+='<p>'+u+'</p><button onclick="window.print()">Print</button></body></html>';
@@ -751,19 +766,163 @@ function renderStaff(){
 async function approveSF(id,n){await fetch(API+'/api/staff/'+id+'/approve',{method:'POST'});await fSF();renderStaff();showToast('✅ อนุมัติ '+n);}
 
 function setDD(){var td=new Date().toISOString().split('T')[0];var w7=new Date(Date.now()-7*86400000).toISOString().split('T')[0];document.getElementById('rf').value=w7;document.getElementById('rt').value=td;}
+var REPORT_CHART_HOUR=null,REPORT_CHART_PAY=null;
+
+function quickDate(key){
+  var t=new Date();var f=new Date();
+  if(key==='today'){}
+  else if(key==='yesterday'){t.setDate(t.getDate()-1);f.setDate(f.getDate()-1);}
+  else if(key==='week'){f.setDate(f.getDate()-6);}
+  else if(key==='month'){f.setDate(f.getDate()-29);}
+  document.getElementById('rf').value=f.toISOString().split('T')[0];
+  document.getElementById('rt').value=t.toISOString().split('T')[0];
+  ['today','yesterday','week','month'].forEach(function(k){
+    var el=document.getElementById('qd-'+k);
+    if(el)el.classList.toggle('active',k===key);
+  });
+  loadReport();
+}
+
+function exportReport(fmt){
+  var f=document.getElementById('rf').value,t=document.getElementById('rt').value;
+  if(!f||!t){showToast('เลือกช่วงวันที่ก่อน');return;}
+  var url=API+'/api/reports/sales/export.'+fmt+'?date_from='+f+'&date_to='+t;
+  window.open(url,'_blank');
+}
+
 async function loadReport(){
   var f=document.getElementById('rf').value,t=document.getElementById('rt').value;
-  var ct=document.getElementById('rpt');ct.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted)">กำลังโหลด...</div>';
+  if(!f||!t){showToast('เลือกช่วงวันที่ก่อน');return;}
+  var ct=document.getElementById('rpt');
+  ct.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">⏳ กำลังโหลด...</div>';
   try{
-    var r=await fetch(API+'/api/reports/sales?date_from='+f+'&date_to='+t);var d=await r.json();
-    var h='<div class="grid grid-cols-3 gap-3 mb-4"><div class="sc"><div style="color:var(--muted);font-size:12px">ยอดรวม</div><div class="sn" style="color:var(--leaf)">฿'+parseFloat(d.total_revenue||0).toFixed(0)+'</div></div><div class="sc"><div style="color:var(--muted);font-size:12px">จำนวน bill</div><div class="sn">'+(d.order_count||0)+'</div></div><div class="sc"><div style="color:var(--muted);font-size:12px">เฉลี่ย/bill</div><div class="sn" style="color:var(--amber)">฿'+(d.order_count?(parseFloat(d.total_revenue)/d.order_count).toFixed(0):0)+'</div></div></div>';
-    if(d.top_items&&d.top_items.length){
-      h+='<div class="fd" style="font-size:15px;color:var(--bark);margin-bottom:8px">🏆 เมนูขายดี</div><div style="background:white;border-radius:12px;overflow:hidden;border:1px solid var(--border)">';
-      d.top_items.forEach(function(item,n){h+='<div style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px"><div style="font-family:Mitr,sans-serif;font-size:14px;color:var(--muted);width:20px">'+(n+1)+'</div><div style="flex:1"><div style="font-weight:600;font-size:13px">'+item.name+'</div><div style="font-size:11px;color:var(--muted)">ขาย '+item.quantity_sold+' รายการ</div></div><div style="font-family:Mitr,sans-serif;color:var(--amber);font-size:13px">฿'+parseFloat(item.total_revenue).toFixed(0)+'</div></div>';});
-      h+='</div>';
-    }
-    ct.innerHTML=h;
+    var r=await fetch(API+'/api/reports/sales/full?date_from='+f+'&date_to='+t);
+    if(!r.ok){ct.innerHTML='<div style="color:var(--red);padding:16px">โหลดไม่ได้ ('+r.status+')</div>';return;}
+    var d=await r.json();
+    if(d.error){ct.innerHTML='<div style="color:var(--red);padding:16px">Error: '+d.error+'</div>';return;}
+    renderReport(d);
   }catch(e){ct.innerHTML='<div style="color:var(--red);padding:16px">โหลดข้อมูลไม่ได้</div>';}
+}
+
+function renderReport(d){
+  var s=d.summary;
+  var h='';
+
+  // Stats cards
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px">';
+  h+=makeCard('💰 รายได้สุทธิ','฿'+fmt(s.net_revenue),'var(--leaf)');
+  h+=makeCard('🧾 จำนวนบิล',s.order_count,'var(--bark)');
+  h+=makeCard('👥 จำนวนลูกค้า',s.guest_count,'var(--blue)');
+  h+=makeCard('📊 เฉลี่ย/บิล','฿'+fmt(s.avg_per_order),'var(--amber)');
+  h+='</div>';
+
+  // Financial breakdown
+  h+='<div style="background:white;border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:16px">';
+  h+='<div class="fd" style="font-size:14px;color:var(--bark);margin-bottom:8px">💵 สรุปการเงิน</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px">';
+  h+=row('ยอดก่อนส่วนลด','฿'+fmt(s.gross_revenue));
+  h+=row('ส่วนลดรวม','-฿'+fmt(s.total_discount),'var(--red)');
+  h+=row('VAT 7%','฿'+fmt(s.vat),'var(--muted)');
+  h+=row('ยอดสุทธิ','฿'+fmt(s.net_revenue),'var(--leaf)',true);
+  if(s.cancelled_count>0){
+    h+=row('รายการยกเลิก',s.cancelled_count+' ('+fmt(s.cancelled_value)+' ฿)','var(--red)');
+  }
+  h+='</div></div>';
+
+  // Charts row
+  h+='<div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:16px">';
+  h+='<div style="background:white;border-radius:14px;padding:14px;border:1px solid var(--border)">';
+  h+='<div class="fd" style="font-size:14px;color:var(--bark);margin-bottom:8px">⏰ ยอดขายรายชั่วโมง</div>';
+  h+='<div style="height:220px"><canvas id="chHour"></canvas></div>';
+  h+='</div>';
+  h+='<div style="background:white;border-radius:14px;padding:14px;border:1px solid var(--border)">';
+  h+='<div class="fd" style="font-size:14px;color:var(--bark);margin-bottom:8px">💳 วิธีชำระเงิน</div>';
+  h+='<div style="height:220px"><canvas id="chPay"></canvas></div>';
+  h+='</div>';
+  h+='</div>';
+
+  // Top items
+  if(d.top_items&&d.top_items.length){
+    h+='<div style="background:white;border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:16px">';
+    h+='<div class="fd" style="font-size:14px;color:var(--bark);margin-bottom:8px">🏆 เมนูขายดี Top 10</div>';
+    d.top_items.forEach(function(item,n){
+      h+='<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #f3ecdf;gap:10px">';
+      h+='<div style="font-family:Mitr,sans-serif;font-size:16px;color:var(--muted);width:24px">'+(n+1)+'</div>';
+      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+item.name+'</div>';
+      h+='<div style="font-size:11px;color:var(--muted)">ขาย '+item.qty+' รายการ</div></div>';
+      h+='<div style="font-family:Mitr,sans-serif;color:var(--amber);font-size:14px">฿'+fmt(item.revenue)+'</div></div>';
+    });
+    h+='</div>';
+  }
+
+  // Cancelled items
+  if(d.cancelled_items&&d.cancelled_items.length){
+    h+='<div style="background:white;border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:16px">';
+    h+='<div class="fd" style="font-size:14px;color:var(--red);margin-bottom:8px">❌ รายการที่ยกเลิก ('+d.cancelled_items.length+')</div>';
+    d.cancelled_items.slice(0,20).forEach(function(c){
+      var lastReason=c.reason?c.reason.split("\n").pop().replace(/^\[[^\]]+\]\s*/,""):"";
+      h+='<div style="padding:8px 0;border-bottom:1px solid #f3ecdf;font-size:12px">';
+      h+='<div style="display:flex;justify-content:space-between">';
+      h+='<span style="font-weight:600">'+c.name+' x'+c.qty+'</span>';
+      h+='<span style="color:var(--red)">-฿'+fmt(c.value)+'</span></div>';
+      h+='<div style="color:var(--muted);font-size:11px;margin-top:2px">'+c.at+' | '+lastReason+' (โดย '+c.by+')</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+
+  document.getElementById('rpt').innerHTML=h;
+
+  // Render charts
+  setTimeout(function(){renderCharts(d);},50);
+}
+
+function makeCard(label,val,color){
+  return '<div class="sc"><div style="color:var(--muted);font-size:12px">'+label+'</div>'
+    +'<div class="sn" style="color:'+color+'">'+val+'</div></div>';
+}
+
+function row(label,val,color,bold){
+  var style=color?'color:'+color:'';
+  if(bold)style+=';font-weight:700;font-size:15px;padding-top:6px;border-top:1px solid var(--border);margin-top:4px;grid-column:1/-1;display:flex;justify-content:space-between';
+  if(bold)return '<div style="'+style+'"><span>'+label+'</span><span>'+val+'</span></div>';
+  return '<div>'+label+'</div><div style="text-align:right;'+style+'">'+val+'</div>';
+}
+
+function fmt(n){return parseFloat(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:0});}
+
+function renderCharts(d){
+  if(typeof Chart==='undefined'){
+    console.warn('Chart.js ยังไม่โหลด');
+    return;
+  }
+  if(REPORT_CHART_HOUR){REPORT_CHART_HOUR.destroy();}
+  if(REPORT_CHART_PAY){REPORT_CHART_PAY.destroy();}
+
+  var hourEl=document.getElementById('chHour');
+  if(hourEl&&d.by_hour){
+    REPORT_CHART_HOUR=new Chart(hourEl,{
+      type:'bar',
+      data:{
+        labels:d.by_hour.map(function(h){return h.hour+':00';}),
+        datasets:[{label:'ยอดขาย (฿)',data:d.by_hour.map(function(h){return h.revenue;}),backgroundColor:'#5C9E55',borderRadius:4}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+    });
+  }
+
+  var payEl=document.getElementById('chPay');
+  if(payEl&&d.by_payment&&d.by_payment.length){
+    var labels={cash:'เงินสด',qr_pay:'QR Pay',card:'บัตร',other:'อื่นๆ'};
+    REPORT_CHART_PAY=new Chart(payEl,{
+      type:'doughnut',
+      data:{
+        labels:d.by_payment.map(function(p){return labels[p.method]||p.method;}),
+        datasets:[{data:d.by_payment.map(function(p){return p.total;}),backgroundColor:['#3A6B35','#2563EB','#E8913A','#8B6F5E']}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+    });
+  }
 }
 
 function initVG(){VG=Array.from({length:VR},function(){return Array(VC).fill(null);});}
