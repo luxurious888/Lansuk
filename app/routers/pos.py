@@ -241,13 +241,24 @@ async def list_bills(
     for s in sessions:
         total = 0.0
         items_count = 0
-        for o in s.orders:
-            for i in o.items:
-                eff_qty = int(i.quantity or 0) - int(i.cancelled_qty or 0)
-                if eff_qty <= 0:
-                    continue
-                total += float(i.unit_price or 0) * eff_qty
-                items_count += 1
+        try:
+            orders = s.orders or []
+            for o in orders:
+                items = o.items or []
+                for i in items:
+                    qty = int(i.quantity) if i.quantity is not None else 0
+                    cqty = int(i.cancelled_qty) if i.cancelled_qty is not None else 0
+                    eff_qty = qty - cqty
+                    if eff_qty <= 0:
+                        continue
+                    price = float(i.unit_price) if i.unit_price is not None else 0.0
+                    total += price * eff_qty
+                    items_count += 1
+        except Exception as e:
+            import traceback
+            print(f"[list_bills] session {s.id} error: {e}")
+            traceback.print_exc()
+            continue
         # ข้าม merged sessions ที่ถูกโอน orders ออกหมดแล้ว
         if items_count == 0 and s.is_paid:
             continue
