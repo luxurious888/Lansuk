@@ -9,6 +9,17 @@ from app.database import get_db
 from app.models import MenuItem, Order, OrderItem, TableSession
 from app.schemas import SalesSummaryOut
 
+from datetime import timezone, timedelta
+TH_TZ = timezone(timedelta(hours=7))
+
+def to_th(dt):
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(TH_TZ).strftime("%d/%m/%Y %H:%M")
+
+
 router = APIRouter()
 
 
@@ -260,7 +271,7 @@ async def _sales_full_impl(
             "value":        round(float(i.unit_price or 0) * (i.cancelled_qty or 0), 2),
             "reason":       i.cancel_reason or "",
             "by":           i.cancelled_by or "—",
-            "at":           i.cancelled_at.strftime("%d/%m/%Y %H:%M") if i.cancelled_at else "",
+            "at":           to_th(i.cancelled_at) or "",
         })
 
     # ── Hourly chart: เติม hour ที่ไม่มีให้ครบ 24 ชั่วโมง ────

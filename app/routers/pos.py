@@ -18,6 +18,20 @@ from app.schemas import (
 )
 from app.services.qr_service import create_qr_token, verify_qr_token
 
+
+# ── Timezone helper ──────────────────────────────────────────────────────────
+from datetime import timezone, timedelta
+TH_TZ = timezone(timedelta(hours=7))
+
+def to_th(dt):
+    """แปลง datetime (ไม่มี tz หรือ UTC) → Asia/Bangkok และคืน string"""
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(TH_TZ).strftime("%d/%m/%Y %H:%M")
+
+
 router = APIRouter()
 
 
@@ -283,8 +297,8 @@ async def _list_bills_impl(
             "session_id":    s.id,
             "table_id":      s.table_id,
             "customer_name": s.customer_name or f"โต๊ะ {s.table_id}",
-            "opened_at":     s.opened_at.strftime("%d/%m/%Y %H:%M") if s.opened_at else "—",
-            "closed_at":     s.closed_at.strftime("%d/%m/%Y %H:%M") if s.closed_at else None,
+            "opened_at":     to_th(s.opened_at) or "—",
+            "closed_at":     to_th(s.closed_at),
             "is_paid":       s.is_paid,
             "total":         total,
             "items_count":   items_count,
