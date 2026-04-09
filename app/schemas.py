@@ -278,15 +278,18 @@ class OrderItemModifierOut(OrmBase):
 
 
 class OrderItemOut(OrmBase):
-    id:          int
-    menu_item_id: int
-    quantity:    int
-    unit_price:  Decimal
-    note:        str | None
-    kds_route:   str
-    status:      OrderStatus
-    line_total:  Decimal
-    modifiers:   list[OrderItemModifierOut]
+    id:             int
+    menu_item_id:   int
+    quantity:       int
+    unit_price:     Decimal
+    note:           str | None
+    kds_route:      str
+    status:         OrderStatus
+    line_total:     Decimal
+    cancelled_qty:  int = 0
+    cancel_reason:  str | None = None
+    cancelled_by:   str | None = None
+    modifiers:      list[OrderItemModifierOut]
 
 
 class OrderOut(OrmBase):
