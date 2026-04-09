@@ -8,3 +8,4 @@ pydantic_core==2.41.5
 python-jose==3.3.0
 uvicorn==0.32.1
 aiosqlite
+reportlab>=4.0.0
