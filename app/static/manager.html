@@ -16,7 +16,9 @@
 .tc{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px solid transparent;transition:all .2s;position:relative;user-select:none;}
 .tc:hover{transform:scale(1.06);z-index:2;}
 .tc.available{background:#E8F5E9;border-color:#A5D6A7;color:#2E7D32;}.tc.occupied{background:#FFF3E0;border-color:#FFCC80;color:#E65100;}
-.tc.cleaning{background:#F3E5F5;border-color:#CE93D8;color:#6A1B9A;}.tc.reserved{background:#E3F2FD;border-color:#90CAF9;color:#1565C0;}
+.tc.cleaning{background:#F3E5F5;border-color:#CE93D8;color:#6A1B9A;}
+.tc.pending{background:#FEF3C7;border-color:#FCD34D;color:#92400E;}
+.bpending{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600;background:#FEF3C7;color:#92400E;}.tc.reserved{background:#E3F2FD;border-color:#90CAF9;color:#1565C0;}
 .tc.vip{background:linear-gradient(135deg,#FFF8E1,#FFF3CD);border-color:var(--gold);color:#7B5E00;}
 .vc{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px solid transparent;font-family:'Mitr',sans-serif;font-size:12px;transition:all .15s;user-select:none;}
 .vc.empty{background:#fafaf8;border:2px dashed #ddd;color:#ccc;}.vc.empty:hover{background:#f0ede8;border-color:#bbb;}
@@ -301,7 +303,7 @@ var SPLIT_SID=null,SPLIT_ORDERS=[],MERGE_SID=null;
 var ORDER_TOKEN=null,ORDER_CART=[],ORDER_CAT=null;
 
 async function init(){
-  await Promise.all([fT(),fZ(),fM(),fC(),fSF()]);
+  await Promise.all([fT(),fZ(),fM(),fC(),fSF(),fB()]);
   renderFloor();updSB();setDD();initVG();renderVC();renderVSL();
 }
 async function fT(){try{var r=await fetch(API+'/api/pos/tables');T=await r.json();}catch(e){}}
@@ -338,9 +340,10 @@ function renderFloor(){
         var z=Z.find(function(x){return x.id===t.zone_id;});
         var st=t.status||'available';
         var iv=z&&z.name&&z.name.toLowerCase().indexOf('vip')>=0;
-        var cl=iv?'vip':st;
+        var hasPending=B.some(function(b){return b.table_id===t.id&&b.payment_status==='pending_payment'&&!b.is_paid;});
+        var cl=hasPending?'pending':(iv?'vip':st);
         var bg=FM==='zone'&&z?'background:'+z.color+'22;border-color:'+z.color:'';
-        var lb=FM==='zone'?(z?z.name:'—'):{available:'ว่าง',occupied:'มีลูกค้า',cleaning:'เก็บ',reserved:'จอง'}[st]||st;
+        var lb=FM==='zone'?(z?z.name:'—'):(hasPending?'รอชำระ':({available:'ว่าง',occupied:'มีลูกค้า',cleaning:'เก็บ',reserved:'จอง'}[st]||st));
         h+='<div class="tc '+cl+'" style="'+bg+'" onclick="clickT('+t.id+')">';
         h+='<div style="font-family:Mitr,sans-serif;font-size:14px;font-weight:600">'+t.table_number+'</div>';
         h+='<div style="font-size:9px;opacity:.8">'+lb+'</div></div>';
@@ -367,11 +370,18 @@ async function clickT(id){
   var h='<div style="display:flex;flex-direction:column;gap:10px">';
   if(t.status==='available') h+='<button class="bp" onclick="openTblFrom('+t.id+')">🔓 เปิดโต๊ะ</button>';
   if(t.status==='occupied'){
-    h+='<button class="bp" onclick="showQR('+t.id+')">📱 แสดง QR</button>';
-    h+='<button class="bp" onclick="viewTBill('+t.id+')">🧾 ดูบิล</button>';
-    h+='<button class="bp" style="background:var(--purple);color:white" onclick="openOrderForTable('+t.id+')">🛒 สั่งอาหาร</button>';
-    h+='<button class="bp" style="background:var(--blue)" onclick="openMove('+t.id+')">🔀 ย้ายโต๊ะ</button>';
-    h+='<button class="bp" style="background:var(--amber)" onclick="setStatus('+t.id+',\'cleaning\')">🧹 เก็บโต๊ะ</button>';
+    var pendingBill=B.find(function(b){return b.table_id===t.id&&b.payment_status==='pending_payment'&&!b.is_paid;});
+    if(pendingBill){
+      h+='<div style="background:#FEF3C7;border:2px solid #FCD34D;border-radius:10px;padding:10px;margin-bottom:6px;text-align:center"><div style="font-weight:600;color:#92400E">🟡 รอชำระเงิน</div><div style="font-size:11px;color:#92400E;margin-top:3px">฿'+pendingBill.total.toFixed(0)+'</div></div>';
+      h+='<button class="bp" onclick="viewBill('+pendingBill.session_id+')">🧾 ดูบิล / ยืนยันรับเงิน</button>';
+      h+='<button class="bp" onclick="showQR('+t.id+')">📱 แสดง QR</button>';
+    }else{
+      h+='<button class="bp" onclick="showQR('+t.id+')">📱 แสดง QR</button>';
+      h+='<button class="bp" onclick="viewTBill('+t.id+')">🧾 ดูบิล</button>';
+      h+='<button class="bp" style="background:var(--purple);color:white" onclick="openOrderForTable('+t.id+')">🛒 สั่งอาหาร</button>';
+      h+='<button class="bp" style="background:var(--blue)" onclick="openMove('+t.id+')">🔀 ย้ายโต๊ะ</button>';
+      h+='<button class="bp" style="background:var(--amber)" onclick="setStatus('+t.id+',\'cleaning\')">🧹 เก็บโต๊ะ</button>';
+    }
   }
   if(t.status==='cleaning') h+='<button class="bp" onclick="setStatus('+t.id+',\'available\')">✅ พร้อมแล้ว</button>';
   h+='<div><label class="lbl">เปลี่ยนเลขโต๊ะ</label>';
@@ -521,7 +531,7 @@ function renderBills(){
       +'<div><div style="font-weight:600;font-size:15px">👤 '+x.customer_name+'</div>'
       +'<div style="font-size:11px;color:var(--muted);margin-top:2px">📅 '+x.opened_at+' | '+x.items_count+' รายการ</div></div>'
       +'<div style="text-align:right"><div style="font-family:Mitr,sans-serif;color:var(--amber);font-size:16px">฿'+x.total.toFixed(0)+'</div>'
-      +'<span class="'+(x.is_paid?'bpaid':'bunpaid')+'">'+(x.is_paid?'ชำระแล้ว':'ค้างชำระ')+'</span></div>'
+      +'<span class="'+(x.is_paid?'bpaid':(x.payment_status==='pending_payment'?'bpending':'bunpaid'))+'">'+(x.is_paid?'ชำระแล้ว':(x.payment_status==='pending_payment'?'🟡 รอชำระ':'ค้างชำระ'))+'</span></div>'
       +'</div></div>';
   }).join('');
 }
@@ -559,7 +569,7 @@ async function viewBill(sid){
       }
       h+='</div>';
       h+='<span style="color:var(--muted);min-width:50px;text-align:right">฿'+(price*eq).toFixed(0)+'</span>';
-      if((!b||!b.is_paid)&&eq>0){
+      if((!b||!b.is_paid)&&eq>0&&(!b||b.payment_status!=='pending_payment')){
         h+='<button data-cid="'+item.id+'" data-cqty="'+qty+'" data-ccan="'+cq+'" data-cnm="'+encodeURIComponent(nm)+'" data-csid="'+sid+'" onclick="openCancelBtn(this)" style="background:#fee2e2;color:var(--red);border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer">❌</button>';
       }
       h+='</div>';
@@ -568,7 +578,11 @@ async function viewBill(sid){
   h+='<div style="background:var(--warm);border-radius:10px;padding:12px;margin-top:10px">';
   h+='<div style="display:flex;justify-content:space-between;font-family:Mitr,sans-serif;font-size:17px"><span>รวมทั้งหมด</span><span style="color:var(--leaf)">฿'+tot.toFixed(0)+'</span></div></div>';
   h+='<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">';
-  if(!b||!b.is_paid){
+  if(b&&b.payment_status==='pending_payment'&&!b.is_paid){
+    h+='<div style="width:100%;background:#FEF3C7;border-radius:10px;padding:10px;margin-bottom:6px;text-align:center;color:#92400E;font-weight:600">🟡 รอลูกค้าชำระเงิน</div>';
+    h+='<button class="bs" style="flex:1;background:#fef3c7;border-color:#fcd34d;color:#92400e" onclick="cancelCheckout('+sid+')">↩️ ยกเลิกเช็คบิล</button>';
+    h+='<button class="bp" style="flex:2;background:var(--leaf)" onclick="confirmCheckout('+sid+')">✅ ยืนยันรับเงิน</button>';
+  }else if(!b||!b.is_paid){
     h+='<button class="bs" style="flex:1" onclick="closeModal(\'mo-bill\');openSplit('+sid+')">✂️ แยกบิล</button>';
     h+='<button class="bs" style="flex:1" onclick="closeModal(\'mo-bill\');openMerge('+sid+')">🔗 รวมบิล</button>';
     h+='<button class="bp" style="flex:2" onclick="closeModal(\'mo-bill\');openCO('+sid+')">💳 เช็คบิล</button>';
@@ -636,6 +650,33 @@ async function calcPrev(sid){
   }
 }
 function setD(f,t,fx,sid){document.getElementById('cof').value=f;document.getElementById('cot').value=t;document.getElementById('cox').value=fx;calcPrev(sid);}
+
+async function confirmCheckout(sid){
+  if(!confirm('ยืนยันได้รับเงินแล้ว?\nการกระทำนี้จะปิดบิลและไม่สามารถยกเลิกได้'))return;
+  try{
+    var r=await fetch(API+'/api/pos/checkout/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});
+    var d=await r.json();
+    if(!r.ok){showToast(d.detail||'เกิดข้อผิดพลาด');return;}
+    closeModal('mo-bill');
+    await Promise.all([fT(),fB()]);
+    renderFloor();renderBills();
+    showToast('✅ ปิดบิลสำเร็จ');
+  }catch(e){showToast('เกิดข้อผิดพลาด');}
+}
+
+async function cancelCheckout(sid){
+  if(!confirm('ยกเลิกการเช็คบิล?\nบิลจะกลับเป็นสถานะ active และสั่งอาหารได้ต่อ'))return;
+  try{
+    var r=await fetch(API+'/api/pos/checkout/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid})});
+    var d=await r.json();
+    if(!r.ok){showToast(d.detail||'เกิดข้อผิดพลาด');return;}
+    closeModal('mo-bill');
+    await Promise.all([fT(),fB()]);
+    renderFloor();renderBills();
+    showToast('↩️ ยกเลิกเช็คบิลแล้ว');
+  }catch(e){showToast('เกิดข้อผิดพลาด');}
+}
+
 async function submitCO(sid){
   var m=document.getElementById('com').value;
   var fd=parseFloat(document.getElementById('cof').value||0);
@@ -644,7 +685,12 @@ async function submitCO(sid){
   try{
     var r=await fetch(API+'/api/pos/checkout/discount',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,payment_method:m,food_discount_pct:fd,total_discount_pct:td,fixed_discount:fx})});
     if(!r.ok){var e=await r.json();showToast(e.detail||'เกิดข้อผิดพลาด');return;}
-    closeModal('mo-co');await fT();await fB();renderFloor();renderBills();showToast('✅ ชำระเงินสำเร็จ!');
+    closeModal('mo-co');
+    await Promise.all([fT(),fB()]);
+    renderFloor();renderBills();
+    showToast('🟡 เช็คบิลแล้ว — รอลูกค้าชำระ');
+    // เปิด viewBill อีกครั้งเพื่อแสดงปุ่มยืนยัน
+    setTimeout(function(){viewBill(sid);},300);
   }catch(e){showToast('เกิดข้อผิดพลาด');}
 }
 
@@ -949,7 +995,7 @@ var toastT;
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show');},2800);}
 function updClk(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});}
 setInterval(updClk,1000);
-setInterval(function(){fT().then(function(){renderFloor();});},30000);
+setInterval(function(){Promise.all([fT(),fB()]).then(function(){renderFloor();});},30000);
 updClk();init();
 </script>
 
