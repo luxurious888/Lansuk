@@ -379,84 +379,7 @@ function printQR(u){
   var h='<!DOCTYPE html><html><head><title>QR</title><style>body{font-family:sans-serif;text-align:center;padding:30px}img{width:250px;height:250px}@media print{button{display:none}}</style></head><body>';
   h+='<h2>ลานสุข</h2><p>สแกนเพื่อสั่งอาหาร</p>';
   h+='<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(u)+'">';
-  h+='<p>'+u+'</p><button onclick="window.print()">Print</button>
-<div class="mo" id="mo-cancel">
-  <div class="md" style="max-width:400px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="fd" style="font-size:17px;color:var(--red)">❌ ยกเลิกรายการ</div>
-      <button onclick="closeModal('mo-cancel')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
-    </div>
-    <div style="background:var(--warm);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px">
-      <div style="font-weight:600" id="cn-name">—</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">เหลืออยู่: <span id="cn-rem">—</span> รายการ</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div>
-        <label class="lbl">จำนวนที่ต้องการยกเลิก</label>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button onclick="cnQty(-1)" style="width:36px;height:36px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:18px">-</button>
-          <input id="cn-qty" type="number" min="1" value="1" class="inp" style="text-align:center;font-family:Mitr,sans-serif;font-size:16px">
-          <button onclick="cnQty(1)" style="width:36px;height:36px;border-radius:50%;background:var(--leaf);color:white;border:none;cursor:pointer;font-size:18px">+</button>
-        </div>
-      </div>
-      <div>
-        <label class="lbl">เหตุผล <span style="color:var(--red)">*</span></label>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
-          <button onclick="cnReason('ลูกค้ายกเลิก')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ลูกค้ายกเลิก</button>
-          <button onclick="cnReason('สั่งผิด')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">สั่งผิด</button>
-          <button onclick="cnReason('ของหมด')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ของหมด</button>
-          <button onclick="cnReason('ทำไม่ทัน')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ทำไม่ทัน</button>
-        </div>
-        <input id="cn-reason" class="inp" placeholder="พิมพ์เหตุผล หรือกดปุ่มด้านบน">
-      </div>
-      <div>
-        <label class="lbl">ชื่อผู้ยกเลิก</label>
-        <input id="cn-by" class="inp" placeholder="เช่น แก้ว">
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="bs" onclick="closeModal('mo-cancel')" style="flex:1">ยกเลิก</button>
-        <button class="bp" style="background:var(--red);flex:1" onclick="submitCancel()">❌ ยืนยัน</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-var CN_ID=null,CN_MAX=0,CN_SID=null;
-function openCancel(id,qty,cancelled,name,sid){
-  CN_ID=id;CN_MAX=qty-cancelled;CN_SID=sid;
-  document.getElementById('cn-name').textContent=name;
-  document.getElementById('cn-rem').textContent=CN_MAX;
-  document.getElementById('cn-qty').value=1;
-  document.getElementById('cn-qty').max=CN_MAX;
-  document.getElementById('cn-reason').value='';
-  document.getElementById('cn-by').value=localStorage.getItem('lastCancelBy')||'';
-  closeModal('mo-bill');
-  openModal('mo-cancel');
-}
-function cnQty(d){var el=document.getElementById('cn-qty');var v=parseInt(el.value||1)+d;if(v<1)v=1;if(v>CN_MAX)v=CN_MAX;el.value=v;}
-function cnReason(r){document.getElementById('cn-reason').value=r;}
-async function submitCancel(){
-  var qty=parseInt(document.getElementById('cn-qty').value||0);
-  var reason=document.getElementById('cn-reason').value.trim();
-  var by=document.getElementById('cn-by').value.trim();
-  if(qty<=0||qty>CN_MAX){showToast('จำนวนไม่ถูกต้อง');return;}
-  if(!reason){showToast('กรุณาระบุเหตุผล');return;}
-  if(!by){showToast('กรุณาระบุชื่อผู้ยกเลิก');return;}
-  localStorage.setItem('lastCancelBy',by);
-  try{
-    var r=await fetch(API+'/api/pos/order-items/'+CN_ID+'/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({qty:qty,reason:reason,cancelled_by:by})});
-    var d=await r.json();
-    if(!r.ok){showToast(d.detail||'เกิดข้อผิดพลาด');return;}
-    closeModal('mo-cancel');
-    await fB();renderBills();
-    viewBill(CN_SID);
-    showToast('✅ ยกเลิก '+qty+' รายการ');
-  }catch(e){showToast('เกิดข้อผิดพลาด');}
-}
-</script>
-
-</body></html>';
+  h+='<p>'+u+'</p><button onclick="window.print()">Print</button></body></html>';
   w.document.write(h);w.document.close();setTimeout(function(){w.print();},500);
 }
 
@@ -600,27 +523,9 @@ async function viewBill(sid){
   o.forEach(function(order){
     order.items.forEach(function(item){
       var m=M.find(function(x){return x.id===item.menu_item_id;});
-      var cq=parseInt(item.cancelled_qty||0);
-      var eq=parseInt(item.quantity||1)-cq;
-      var price=parseFloat(item.unit_price||0);
-      h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed #f0e8dc;font-size:13px">';
-      h+='<div style="flex:1">';
-      if(eq>0){
-        h+='<div>'+eq+'x '+(m?m.name:'รายการ #'+item.menu_item_id)+'</div>';
-      }else{
-        h+='<div style="text-decoration:line-through;color:var(--muted)">'+item.quantity+'x '+(m?m.name:'รายการ #'+item.menu_item_id)+'</div>';
-      }
-      if(cq>0){
-        h+='<div style="font-size:10px;color:var(--red);margin-top:2px">❌ ยกเลิก '+cq+' รายการ';
-        if(item.cancel_reason)h+=' — '+item.cancel_reason.split("\n").pop().replace(/\[[^\]]+\]\s*/,"");
-        h+='</div>';
-      }
-      h+='</div>';
-      h+='<span style="color:var(--muted);min-width:50px;text-align:right">฿'+(price*eq).toFixed(0)+'</span>';
-      if(!b||!b.is_paid){
-        h+='<button onclick="openCancel('+item.id+','+item.quantity+','+cq+',\''+(m?m.name.replace(/\x27/g,"\\x27"):"รายการ")+'\','+sid+')" style="background:#fee2e2;color:var(--red);border:none;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer" title="ยกเลิก">❌</button>';
-      }
-      h+='</div>';
+      h+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #f0e8dc;font-size:13px">';
+      h+='<span>'+item.quantity+'x '+(m?m.name:'รายการ #'+item.menu_item_id)+'</span>';
+      h+='<span style="color:var(--muted)">฿'+(parseFloat(item.unit_price||0)*parseInt(item.quantity||1)).toFixed(0)+'</span></div>';
     });
   });
   h+='<div style="background:var(--warm);border-radius:10px;padding:12px;margin-top:10px">';
@@ -637,21 +542,7 @@ async function viewBill(sid){
   document.getElementById('mb-body').innerHTML=h;openModal('mo-bill');
 }
 
-async function viewTBill(tid){
-  closeModal('mo-tbl');await fB();
-  var bills=B.filter(function(x){return x.table_id===tid&&!x.is_paid;});
-  if(bills.length===0){showToast('ไม่พบบิลค้างชำระ');return;}
-  if(bills.length===1){viewBill(bills[0].session_id);return;}
-  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">';
-  h+='<div class="fd" style="font-size:17px">📋 เลือกบิล ('+bills.length+' บิล)</div>';
-  h+='<button onclick="closeModal(\'mo-bill\')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button></div>';
-  h+='<div style="display:flex;flex-direction:column;gap:8px">';
-  bills.forEach(function(b){
-    h+='<div onclick="closeModal(\'mo-bill\');viewBill('+b.session_id+')" style="background:white;border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:14px">👤 '+b.customer_name+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+b.items_count+' รายการ</div></div><div style="font-family:Mitr,sans-serif;color:var(--amber);font-size:15px">฿'+b.total.toFixed(0)+'</div></div></div>';
-  });
-  h+='</div>';
-  document.getElementById('mb-body').innerHTML=h;openModal('mo-bill');
-}
+async function viewTBill(tid){closeModal('mo-tbl');await fB();var b=B.find(function(x){return x.table_id===tid&&!x.is_paid;});if(b)viewBill(b.session_id);else showToast('ไม่พบบิลค้างชำระ');}
 
 function openCO(sid){
   var b=B.find(function(x){return x.session_id===sid;});
@@ -866,82 +757,5 @@ setInterval(updClk,1000);
 setInterval(function(){fT().then(function(){renderFloor();});},30000);
 updClk();init();
 </script>
-
-<div class="mo" id="mo-cancel">
-  <div class="md" style="max-width:400px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="fd" style="font-size:17px;color:var(--red)">❌ ยกเลิกรายการ</div>
-      <button onclick="closeModal('mo-cancel')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
-    </div>
-    <div style="background:var(--warm);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px">
-      <div style="font-weight:600" id="cn-name">—</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">เหลืออยู่: <span id="cn-rem">—</span> รายการ</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div>
-        <label class="lbl">จำนวนที่ต้องการยกเลิก</label>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button onclick="cnQty(-1)" style="width:36px;height:36px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:18px">-</button>
-          <input id="cn-qty" type="number" min="1" value="1" class="inp" style="text-align:center;font-family:Mitr,sans-serif;font-size:16px">
-          <button onclick="cnQty(1)" style="width:36px;height:36px;border-radius:50%;background:var(--leaf);color:white;border:none;cursor:pointer;font-size:18px">+</button>
-        </div>
-      </div>
-      <div>
-        <label class="lbl">เหตุผล <span style="color:var(--red)">*</span></label>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
-          <button onclick="cnReason('ลูกค้ายกเลิก')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ลูกค้ายกเลิก</button>
-          <button onclick="cnReason('สั่งผิด')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">สั่งผิด</button>
-          <button onclick="cnReason('ของหมด')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ของหมด</button>
-          <button onclick="cnReason('ทำไม่ทัน')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ทำไม่ทัน</button>
-        </div>
-        <input id="cn-reason" class="inp" placeholder="พิมพ์เหตุผล หรือกดปุ่มด้านบน">
-      </div>
-      <div>
-        <label class="lbl">ชื่อผู้ยกเลิก</label>
-        <input id="cn-by" class="inp" placeholder="เช่น แก้ว">
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="bs" onclick="closeModal('mo-cancel')" style="flex:1">ยกเลิก</button>
-        <button class="bp" style="background:var(--red);flex:1" onclick="submitCancel()">❌ ยืนยัน</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-var CN_ID=null,CN_MAX=0,CN_SID=null;
-function openCancel(id,qty,cancelled,name,sid){
-  CN_ID=id;CN_MAX=qty-cancelled;CN_SID=sid;
-  document.getElementById('cn-name').textContent=name;
-  document.getElementById('cn-rem').textContent=CN_MAX;
-  document.getElementById('cn-qty').value=1;
-  document.getElementById('cn-qty').max=CN_MAX;
-  document.getElementById('cn-reason').value='';
-  document.getElementById('cn-by').value=localStorage.getItem('lastCancelBy')||'';
-  closeModal('mo-bill');
-  openModal('mo-cancel');
-}
-function cnQty(d){var el=document.getElementById('cn-qty');var v=parseInt(el.value||1)+d;if(v<1)v=1;if(v>CN_MAX)v=CN_MAX;el.value=v;}
-function cnReason(r){document.getElementById('cn-reason').value=r;}
-async function submitCancel(){
-  var qty=parseInt(document.getElementById('cn-qty').value||0);
-  var reason=document.getElementById('cn-reason').value.trim();
-  var by=document.getElementById('cn-by').value.trim();
-  if(qty<=0||qty>CN_MAX){showToast('จำนวนไม่ถูกต้อง');return;}
-  if(!reason){showToast('กรุณาระบุเหตุผล');return;}
-  if(!by){showToast('กรุณาระบุชื่อผู้ยกเลิก');return;}
-  localStorage.setItem('lastCancelBy',by);
-  try{
-    var r=await fetch(API+'/api/pos/order-items/'+CN_ID+'/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({qty:qty,reason:reason,cancelled_by:by})});
-    var d=await r.json();
-    if(!r.ok){showToast(d.detail||'เกิดข้อผิดพลาด');return;}
-    closeModal('mo-cancel');
-    await fB();renderBills();
-    viewBill(CN_SID);
-    showToast('✅ ยกเลิก '+qty+' รายการ');
-  }catch(e){showToast('เกิดข้อผิดพลาด');}
-}
-</script>
-
 </body>
 </html>

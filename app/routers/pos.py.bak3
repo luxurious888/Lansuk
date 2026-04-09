@@ -518,10 +518,6 @@ async def fix_db():
         "ALTER TABLE orders ADD COLUMN subtotal REAL DEFAULT 0",
         "ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'cash'",
         "ALTER TABLE orders ADD COLUMN paid_at DATETIME",
-        "ALTER TABLE order_items ADD COLUMN cancelled_qty INTEGER DEFAULT 0",
-        "ALTER TABLE order_items ADD COLUMN cancelled_at DATETIME",
-        "ALTER TABLE order_items ADD COLUMN cancel_reason TEXT",
-        "ALTER TABLE order_items ADD COLUMN cancelled_by TEXT",
     ]
     async with aiosqlite.connect(db_path) as db:
         for sql in sqls:
@@ -532,60 +528,3 @@ async def fix_db():
             except Exception as e:
                 results.append("SKIP: " + str(e)[:50])
     return {"results": results}
-
-# ── POST /api/pos/order-items/{id}/cancel ─────────────────────────────────────
-@router.post("/order-items/{item_id}/cancel")
-async def cancel_order_item(item_id: int, body: dict, db: AsyncSession = Depends(get_db)):
-    """
-    ยกเลิกรายการ (ทั้งหมดหรือบางส่วน) — เก็บ log ไว้ทุกครั้ง
-    body: { qty: int, reason: str, cancelled_by: str }
-    """
-    from datetime import datetime, timezone
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-    from app.models import OrderItem, Order
-
-    qty    = int(body.get("qty", 0))
-    reason = (body.get("reason") or "").strip()
-    by     = (body.get("cancelled_by") or "").strip() or "ไม่ระบุ"
-
-    if qty <= 0:
-        raise HTTPException(status_code=400, detail="จำนวนที่ยกเลิกต้องมากกว่า 0")
-    if not reason:
-        raise HTTPException(status_code=400, detail="กรุณาระบุเหตุผลในการยกเลิก")
-
-    result = await db.execute(
-        select(OrderItem)
-        .where(OrderItem.id == item_id)
-        .options(selectinload(OrderItem.order).selectinload(Order.session))
-    )
-    item = result.scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="ไม่พบรายการนี้")
-
-    if item.order and item.order.session and item.order.session.is_paid:
-        raise HTTPException(status_code=400, detail="บิลชำระแล้ว ไม่สามารถยกเลิกได้")
-
-    current_cancelled = item.cancelled_qty or 0
-    remaining = item.quantity - current_cancelled
-    if qty > remaining:
-        raise HTTPException(
-            status_code=400,
-            detail=f"ยกเลิกเกินจำนวนที่เหลือ (เหลือ {remaining})"
-        )
-
-    # ต่อเหตุผลใหม่กับเก่า (ถ้ามี) เพื่อเก็บ history
-    now = datetime.now(timezone.utc)
-    ts = now.strftime("%d/%m %H:%M")
-    new_entry = f"[{ts}] -{qty} โดย {by}: {reason}"
-    item.cancel_reason = (item.cancel_reason + "\n" + new_entry) if item.cancel_reason else new_entry
-    item.cancelled_qty = current_cancelled + qty
-    item.cancelled_at  = now
-    item.cancelled_by  = by
-
-    return {
-        "message":        "ยกเลิกสำเร็จ",
-        "item_id":        item.id,
-        "cancelled_qty":  item.cancelled_qty,
-        "remaining_qty":  item.quantity - item.cancelled_qty,
-    }

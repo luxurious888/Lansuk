@@ -442,24 +442,13 @@ class OrderItem(Base):
     status:       Mapped[OrderStatus] = mapped_column(SAEnum(OrderStatus), default=OrderStatus.PENDING)
     ready_at:     Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # ── ยกเลิก/ลดจำนวน ────────────────────────────────────────────────────────
-    cancelled_qty:  Mapped[int]             = mapped_column(Integer, default=0)
-    cancelled_at:   Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    cancel_reason:  Mapped[str | None]      = mapped_column(Text, nullable=True)
-    cancelled_by:   Mapped[str | None]      = mapped_column(String(80), nullable=True)
-
     order:     Mapped[Order]                    = relationship(back_populates="items")
     modifiers: Mapped[list[OrderItemModifier]]  = relationship(back_populates="order_item", cascade="all, delete-orphan")
 
     @property
-    def effective_qty(self) -> int:
-        """จำนวนที่ยังใช้งานอยู่ (หลังหักที่ยกเลิก)"""
-        return max(0, self.quantity - (self.cancelled_qty or 0))
-
-    @property
     def line_total(self) -> Decimal:
         modifier_sum = sum(m.extra_price for m in self.modifiers)
-        return (self.unit_price + Decimal(str(modifier_sum))) * self.effective_qty
+        return (self.unit_price + Decimal(str(modifier_sum))) * self.quantity
 
 
 class OrderItemModifier(Base):
