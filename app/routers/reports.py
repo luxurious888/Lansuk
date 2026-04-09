@@ -129,7 +129,23 @@ async def attendance_report(
 # ════════════════════════════════════════════════════════════════
 
 @router.get("/sales/full")
-async def sales_full(
+async def sales_full_wrapper(
+    date_from: date,
+    date_to:   date,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        return await _sales_full_impl(date_from, date_to, db)
+    except Exception as e:
+        import traceback
+        return {
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc().split("\n")[-20:],
+        }
+
+
+async def _sales_full_impl(
     date_from: date,
     date_to:   date,
     db: AsyncSession = Depends(get_db),
