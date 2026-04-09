@@ -390,8 +390,7 @@ async function delTbl(id){if(!confirm('ยืนยันลบโต๊ะ?'))r
 
 function printQR(u){
   var w=window.open('','_blank','width=400,height=500');
-  var h='<!DOCTYPE html><html><head><title>QR</title><style>body{font-family:sans-serif;text-align:center;padding:30px}img{width:250px;height:250px}@media print{button{display:none}}</style><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head><body>';
+  var h='<!DOCTYPE html><html><head><title>QR</title><style>body{font-family:sans-serif;text-align:center;padding:30px}img{width:250px;height:250px}@media print{button{display:none}}</style></head><body>';
   h+='<h2>ลานสุข</h2><p>สแกนเพื่อสั่งอาหาร</p>';
   h+='<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(u)+'">';
   h+='<p>'+u+'</p><button onclick="window.print()">Print</button></body></html>';
