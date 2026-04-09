@@ -9,10 +9,55 @@ from app.database import init_db
 from app.routers import admin, attendance, orders, payroll, pos, reports, staff, telegram
 
 
+async def _run_migrations():
+    """รัน ALTER TABLE ทุกครั้งที่ app start — idempotent"""
+    import aiosqlite, re
+    url = settings.DATABASE_URL
+    # แปลง sqlite+aiosqlite:///path → path
+    m = re.match(r"sqlite(?:\+aiosqlite)?:///+(.*)", url)
+    db_file = m.group(1) if m else "lansook.db"
+    # absolute path: //// → / prefix
+    if url.startswith("sqlite+aiosqlite:////") or url.startswith("sqlite:////"):
+        db_file = "/" + db_file.lstrip("/")
+    import os
+    parent = os.path.dirname(db_file)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    sqls = [
+        "ALTER TABLE table_sessions ADD COLUMN customer_name TEXT",
+        "ALTER TABLE orders ADD COLUMN discount_amt REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN vat_amt REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN subtotal REAL DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'cash'",
+        "ALTER TABLE orders ADD COLUMN paid_at DATETIME",
+        "ALTER TABLE order_items ADD COLUMN cancelled_qty INTEGER DEFAULT 0",
+        "ALTER TABLE order_items ADD COLUMN cancelled_at DATETIME",
+        "ALTER TABLE order_items ADD COLUMN cancel_reason TEXT",
+        "ALTER TABLE order_items ADD COLUMN cancelled_by TEXT",
+    ]
+    print(f"[migrate] db_file={db_file}")
+    try:
+        async with aiosqlite.connect(db_file) as conn:
+            for sql in sqls:
+                try:
+                    await conn.execute(sql)
+                    await conn.commit()
+                    print(f"[migrate] OK: {sql[:70]}")
+                except Exception as e:
+                    msg = str(e).lower()
+                    if "duplicate column" not in msg:
+                        print(f"[migrate] FAIL: {sql[:60]} → {e}")
+        print("[migrate] เสร็จ")
+    except Exception as e:
+        print(f"[migrate] ERROR: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.DEBUG:
-        await init_db()
+    # init tables (สร้างตารางใหม่ถ้ายังไม่มี)
+    await init_db()
+    # auto-migrate (เพิ่ม column ที่ขาด)
+    await _run_migrations()
     yield
 
 
