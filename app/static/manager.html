@@ -542,7 +542,21 @@ async function viewBill(sid){
   document.getElementById('mb-body').innerHTML=h;openModal('mo-bill');
 }
 
-async function viewTBill(tid){closeModal('mo-tbl');await fB();var b=B.find(function(x){return x.table_id===tid&&!x.is_paid;});if(b)viewBill(b.session_id);else showToast('ไม่พบบิลค้างชำระ');}
+async function viewTBill(tid){
+  closeModal('mo-tbl');await fB();
+  var bills=B.filter(function(x){return x.table_id===tid&&!x.is_paid;});
+  if(bills.length===0){showToast('ไม่พบบิลค้างชำระ');return;}
+  if(bills.length===1){viewBill(bills[0].session_id);return;}
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">';
+  h+='<div class="fd" style="font-size:17px">📋 เลือกบิล ('+bills.length+' บิล)</div>';
+  h+='<button onclick="closeModal(\'mo-bill\')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button></div>';
+  h+='<div style="display:flex;flex-direction:column;gap:8px">';
+  bills.forEach(function(b){
+    h+='<div onclick="closeModal(\'mo-bill\');viewBill('+b.session_id+')" style="background:white;border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:14px">👤 '+b.customer_name+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+b.items_count+' รายการ</div></div><div style="font-family:Mitr,sans-serif;color:var(--amber);font-size:15px">฿'+b.total.toFixed(0)+'</div></div></div>';
+  });
+  h+='</div>';
+  document.getElementById('mb-body').innerHTML=h;openModal('mo-bill');
+}
 
 function openCO(sid){
   var b=B.find(function(x){return x.session_id===sid;});

@@ -70,16 +70,18 @@ async def open_table(
 # ── GET /api/pos/tables/{table_id}/session ────────────────────────────────────
 @router.get("/tables/{table_id}/session", response_model=TableSessionOut)
 async def get_active_session(table_id: int, db: AsyncSession = Depends(get_db)):
-    """ดู session ที่ active อยู่ของโต๊ะ"""
+    """ดู session ที่ active อยู่ของโต๊ะ (ถ้ามีหลาย session คืนตัวแรกสุด)"""
     result = await db.execute(
         select(TableSession)
         .where(TableSession.table_id == table_id)
         .where(TableSession.closed_at.is_(None))
+        .order_by(TableSession.opened_at.asc())
     )
-    session = result.scalar_one_or_none()
+    session = result.scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="โต๊ะนี้ยังไม่เปิด")
     return session
+
 
 
 # ── POST /api/pos/checkout ────────────────────────────────────────────────────
@@ -243,6 +245,9 @@ async def list_bills(
             for i in o.items
         )
         items_count = sum(len(o.items) for o in s.orders)
+        # ข้าม merged sessions ที่ถูกโอน orders ออกหมดแล้ว
+        if items_count == 0 and s.is_paid:
+            continue
         bills.append({
             "session_id":    s.id,
             "table_id":      s.table_id,
@@ -258,28 +263,23 @@ async def list_bills(
 
 @router.post("/checkout/discount")
 async def checkout_with_discount(body: dict, db: AsyncSession = Depends(get_db)):
-    """
-    ชำระเงินพร้อมส่วนลด
-    body: {
-        session_id, payment_method,
-        food_discount_pct,   # ส่วนลด % เฉพาะอาหาร
-        total_discount_pct,  # ส่วนลด % รวมทั้งหมด
-        fixed_discount,      # ส่วนลดตายตัว (บาท)
-        discount_type,       # "food" | "total" | "vip" | "owner"
-    }
-    """
+    """ชำระเงินพร้อมส่วนลด"""
     from datetime import datetime, timezone
     from decimal import Decimal
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
-    from app.models import Order, OrderStatus, PaymentMethod
+    from app.models import Order, OrderItem, OrderStatus, PaymentMethod, TableStatus
 
     session_id = body["session_id"]
     result = await db.execute(
         select(TableSession)
         .where(TableSession.id == session_id)
         .where(TableSession.closed_at.is_(None))
-        .options(selectinload(TableSession.orders))
+        .options(
+            selectinload(TableSession.orders)
+            .selectinload(Order.items)
+            .selectinload(OrderItem.modifiers)
+        )
     )
     session = result.scalar_one_or_none()
     if not session:
@@ -293,12 +293,8 @@ async def checkout_with_discount(body: dict, db: AsyncSession = Depends(get_db))
         if order.status == OrderStatus.CANCELLED:
             continue
         subtotal = Decimal(str(sum(float(i.line_total) for i in order.items)))
-
-        # ส่วนลดอาหาร %
         food_disc = subtotal * food_discount_pct / 100
-        # ส่วนลดรวม %
         total_disc = (subtotal - food_disc) * total_discount_pct / 100
-        # ส่วนลดตายตัว
         all_disc = food_disc + total_disc + fixed_discount
 
         order.subtotal       = subtotal
@@ -311,96 +307,120 @@ async def checkout_with_discount(body: dict, db: AsyncSession = Depends(get_db))
     session.closed_at = datetime.now(timezone.utc)
     session.is_paid   = True
 
-    table = await db.get(DiningTable, session.table_id)
-    if table:
-        from app.models import TableStatus
-        table.status = TableStatus.CLEANING
+    # ถ้าโต๊ะไม่มี session อื่นที่ active → เปลี่ยนเป็น CLEANING
+    others = await db.execute(
+        select(TableSession)
+        .where(TableSession.table_id == session.table_id)
+        .where(TableSession.closed_at.is_(None))
+        .where(TableSession.id != session.id)
+    )
+    if not others.scalars().first():
+        table = await db.get(DiningTable, session.table_id)
+        if table:
+            table.status = TableStatus.CLEANING
 
     return {"message": "ชำระเงินสำเร็จ", "session_id": session_id}
+
 
 
 # ── POST /api/pos/tables/move ─────────────────────────────────────────────────
 @router.post("/tables/move")
 async def move_table(body: dict, db: AsyncSession = Depends(get_db)):
-    """
-    ย้ายโต๊ะ — โอน session + orders จากโต๊ะเก่าไปโต๊ะใหม่
-    body: { from_table_id, to_table_id }
-    """
+    """ย้ายโต๊ะ — โอน session + orders จากโต๊ะเก่าไปโต๊ะใหม่"""
     from app.models import TableStatus
+    from sqlalchemy import select
 
     from_id = body["from_table_id"]
     to_id   = body["to_table_id"]
 
-    # ตรวจโต๊ะต้นทาง
     from_table = await db.get(DiningTable, from_id)
     if not from_table:
         raise HTTPException(status_code=404, detail="ไม่พบโต๊ะต้นทาง")
-    if from_table.status != TableStatus.OCCUPIED:
-        raise HTTPException(status_code=400, detail="โต๊ะต้นทางไม่มีลูกค้า")
 
-    # ตรวจโต๊ะปลายทาง
     to_table = await db.get(DiningTable, to_id)
     if not to_table:
         raise HTTPException(status_code=404, detail="ไม่พบโต๊ะปลายทาง")
     if to_table.status != TableStatus.AVAILABLE:
         raise HTTPException(status_code=400, detail=f"โต๊ะปลายทางไม่ว่าง (สถานะ: {to_table.status})")
 
-    # หา active session ของโต๊ะต้นทาง
-    from sqlalchemy import select
     result = await db.execute(
         select(TableSession)
         .where(TableSession.table_id == from_id)
         .where(TableSession.closed_at.is_(None))
+        .order_by(TableSession.opened_at.asc())
     )
-    session = result.scalar_one_or_none()
-    if not session:
-        raise HTTPException(status_code=404, detail="ไม่พบ session ที่เปิดอยู่")
+    active_sessions = result.scalars().all()
 
-    # โอน session ไปโต๊ะใหม่
+    if not active_sessions:
+        raise HTTPException(status_code=404, detail="ไม่พบ session ที่เปิดอยู่ของโต๊ะนี้")
+    if len(active_sessions) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail=f"โต๊ะนี้มี {len(active_sessions)} บิลที่ยังไม่ปิด กรุณารวมบิลหรือชำระให้เหลือบิลเดียวก่อนย้าย"
+        )
+
+    session = active_sessions[0]
     session.table_id = to_id
-
-    # อัปเดตสถานะโต๊ะ
     from_table.status = TableStatus.AVAILABLE
     to_table.status   = TableStatus.OCCUPIED
 
     return {
         "message": f"ย้ายจากโต๊ะ {from_table.table_number} → โต๊ะ {to_table.table_number} สำเร็จ",
-        "session_id":       session.id,
+        "session_id":        session.id,
         "from_table_number": from_table.table_number,
         "to_table_number":   to_table.table_number,
     }
 
 
+
 # ── POST /api/pos/bills/merge ─────────────────────────────────────────────────
 @router.post("/bills/merge")
 async def merge_bills(body: dict, db: AsyncSession = Depends(get_db)):
-    """รวมบิลหลายโต๊ะเข้าด้วยกัน"""
+    """รวมบิลหลายบิลเข้าด้วยกัน — ย้าย orders ไป main session แล้วปิดบิลอื่น"""
+    from datetime import datetime, timezone
     from sqlalchemy import select
-    from app.models import Order
+    from app.models import Order, TableStatus
 
-    session_ids = body["session_ids"]   # [1, 2, 3]
-    main_id     = body["main_session_id"]  # session ที่จะเป็น main
+    session_ids = body["session_ids"]
+    main_id     = body["main_session_id"]
 
     if main_id not in session_ids:
         raise HTTPException(status_code=400, detail="main_session_id ต้องอยู่ใน session_ids")
 
-    # โอน orders ทุกตัวไปที่ main session
+    main_session = await db.get(TableSession, main_id)
+    if not main_session:
+        raise HTTPException(status_code=404, detail="ไม่พบ main session")
+
     for sid in session_ids:
         if sid == main_id:
             continue
+
         await db.execute(
             Order.__table__.update()
             .where(Order.session_id == sid)
             .values(session_id=main_id)
         )
-        # ปิด session ที่โอนออก
+
         s = await db.get(TableSession, sid)
         if s:
-            from datetime import datetime, timezone
             s.closed_at = datetime.now(timezone.utc)
-            s.is_paid   = False  # ยังไม่จ่าย แค่รวมบิล
+            s.is_paid   = True
+            s.customer_name = (s.customer_name or "") + f" → รวม #{main_id}"
+
+            if s.table_id != main_session.table_id:
+                others = await db.execute(
+                    select(TableSession)
+                    .where(TableSession.table_id == s.table_id)
+                    .where(TableSession.closed_at.is_(None))
+                    .where(TableSession.id != sid)
+                )
+                if not others.scalars().first():
+                    t = await db.get(DiningTable, s.table_id)
+                    if t:
+                        t.status = TableStatus.CLEANING
 
     return {"message": f"รวม {len(session_ids)} บิลเข้าด้วยกันสำเร็จ", "main_session_id": main_id}
+
 
 
 # ── POST /api/pos/bills/split ─────────────────────────────────────────────────
