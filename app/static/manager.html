@@ -423,9 +423,14 @@ function printQR(u){
 
 <script>
 var CN_ID=null,CN_MAX=0,CN_SID=null;
-function openCancel(id,qty,cancelled,name,sid){
-  CN_ID=id;CN_MAX=qty-cancelled;CN_SID=sid;
-  document.getElementById('cn-name').textContent=name;
+function openCancelBtn(btn){
+  var id=parseInt(btn.getAttribute('data-cid'));
+  var qty=parseInt(btn.getAttribute('data-cqty'));
+  var can=parseInt(btn.getAttribute('data-ccan'));
+  var nm=decodeURIComponent(btn.getAttribute('data-cnm'));
+  var sid=parseInt(btn.getAttribute('data-csid'));
+  CN_ID=id;CN_MAX=qty-can;CN_SID=sid;
+  document.getElementById('cn-name').textContent=nm;
   document.getElementById('cn-rem').textContent=CN_MAX;
   document.getElementById('cn-qty').value=1;
   document.getElementById('cn-qty').max=CN_MAX;
@@ -601,24 +606,29 @@ async function viewBill(sid){
     order.items.forEach(function(item){
       var m=M.find(function(x){return x.id===item.menu_item_id;});
       var cq=parseInt(item.cancelled_qty||0);
-      var eq=parseInt(item.quantity||1)-cq;
+      var qty=parseInt(item.quantity||1);
+      var eq=qty-cq;
       var price=parseFloat(item.unit_price||0);
-      h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed #f0e8dc;font-size:13px">';
+      var nm=m?m.name:('รายการ #'+item.menu_item_id);
+      h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed #f0e8dc;font-size:13px">';
       h+='<div style="flex:1">';
       if(eq>0){
-        h+='<div>'+eq+'x '+(m?m.name:'รายการ #'+item.menu_item_id)+'</div>';
+        h+='<div>'+eq+'x '+nm+'</div>';
       }else{
-        h+='<div style="text-decoration:line-through;color:var(--muted)">'+item.quantity+'x '+(m?m.name:'รายการ #'+item.menu_item_id)+'</div>';
+        h+='<div style="text-decoration:line-through;color:var(--muted)">'+qty+'x '+nm+'</div>';
       }
       if(cq>0){
-        h+='<div style="font-size:10px;color:var(--red);margin-top:2px">❌ ยกเลิก '+cq+' รายการ';
-        if(item.cancel_reason)h+=' — '+item.cancel_reason.split("\n").pop().replace(/\[[^\]]+\]\s*/,"");
-        h+='</div>';
+        var lastReason='';
+        if(item.cancel_reason){
+          var lines=item.cancel_reason.split('\n');
+          lastReason=lines[lines.length-1].replace(/^\[[^\]]+\]\s*/,'');
+        }
+        h+='<div style="font-size:10px;color:var(--red);margin-top:2px">❌ ยกเลิก '+cq+(lastReason?' — '+lastReason:'')+'</div>';
       }
       h+='</div>';
       h+='<span style="color:var(--muted);min-width:50px;text-align:right">฿'+(price*eq).toFixed(0)+'</span>';
-      if(!b||!b.is_paid){
-        h+='<button onclick="openCancel('+item.id+','+item.quantity+','+cq+',\''+(m?m.name.replace(/\x27/g,"\\x27"):"รายการ")+'\','+sid+')" style="background:#fee2e2;color:var(--red);border:none;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer" title="ยกเลิก">❌</button>';
+      if((!b||!b.is_paid)&&eq>0){
+        h+='<button data-cid="'+item.id+'" data-cqty="'+qty+'" data-ccan="'+cq+'" data-cnm="'+encodeURIComponent(nm)+'" data-csid="'+sid+'" onclick="openCancelBtn(this)" style="background:#fee2e2;color:var(--red);border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer">❌</button>';
       }
       h+='</div>';
     });
@@ -910,9 +920,14 @@ updClk();init();
 
 <script>
 var CN_ID=null,CN_MAX=0,CN_SID=null;
-function openCancel(id,qty,cancelled,name,sid){
-  CN_ID=id;CN_MAX=qty-cancelled;CN_SID=sid;
-  document.getElementById('cn-name').textContent=name;
+function openCancelBtn(btn){
+  var id=parseInt(btn.getAttribute('data-cid'));
+  var qty=parseInt(btn.getAttribute('data-cqty'));
+  var can=parseInt(btn.getAttribute('data-ccan'));
+  var nm=decodeURIComponent(btn.getAttribute('data-cnm'));
+  var sid=parseInt(btn.getAttribute('data-csid'));
+  CN_ID=id;CN_MAX=qty-can;CN_SID=sid;
+  document.getElementById('cn-name').textContent=nm;
   document.getElementById('cn-rem').textContent=CN_MAX;
   document.getElementById('cn-qty').value=1;
   document.getElementById('cn-qty').max=CN_MAX;
