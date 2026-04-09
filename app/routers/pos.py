@@ -299,9 +299,10 @@ async def _list_bills_impl(
             "customer_name": s.customer_name or f"โต๊ะ {s.table_id}",
             "opened_at":     to_th(s.opened_at) or "—",
             "closed_at":     to_th(s.closed_at),
-            "is_paid":       s.is_paid,
-            "total":         total,
-            "items_count":   items_count,
+            "is_paid":        s.is_paid,
+            "payment_status": getattr(s, "payment_status", "active") or "active",
+            "total":          total,
+            "items_count":    items_count,
         })
     return bills
 
