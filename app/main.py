@@ -92,8 +92,6 @@ async def health():
     return {"status": "ok", "app": settings.APP_NAME}
 
 
-# ── Static mount ท้ายสุด ─────────────────────────────────────────────────────
-app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
 @app.get("/debug/env")
 async def debug_env():
@@ -109,3 +107,6 @@ async def debug_env():
         "data_files": os.listdir("/data") if os.path.exists("/data") else [],
     }
 
+
+# ── Static mount ท้ายสุด ─────────────────────────────────────────────────────
+app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
