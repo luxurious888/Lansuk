@@ -410,29 +410,45 @@ async def split_bill(body: dict, db: AsyncSession = Depends(get_db)):
     แยกบิล — แยก order_item_ids บางส่วนออกเป็น session ใหม่
     body: { session_id, order_item_ids: [1,2,3] }
     """
+    from decimal import Decimal
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
     from app.models import Order, OrderItem, OrderStatus
     from app.services.qr_service import create_qr_token
-    import uuid
 
-    session_id     = body["session_id"]
-    split_item_ids = body["order_item_ids"]
+    session_id     = body.get("session_id")
+    split_item_ids = body.get("order_item_ids") or []
+
+    if not split_item_ids:
+        raise HTTPException(status_code=400, detail="กรุณาเลือกรายการที่ต้องการแยก")
 
     session = await db.get(TableSession, session_id)
     if not session or session.closed_at:
-        raise HTTPException(status_code=404, detail="ไม่พบ session")
+        raise HTTPException(status_code=404, detail="ไม่พบ session หรือปิดแล้ว")
 
-    # หา items ที่ต้องการแยก
+    # 🔑 โหลด items พร้อม modifiers — กัน MissingGreenlet จาก lazy load
     result = await db.execute(
-        select(OrderItem).where(OrderItem.id.in_(split_item_ids))
+        select(OrderItem)
+        .where(OrderItem.id.in_(split_item_ids))
+        .options(selectinload(OrderItem.modifiers))
     )
     items = result.scalars().all()
     if not items:
         raise HTTPException(status_code=404, detail="ไม่พบรายการที่ต้องการแยก")
 
+    # ตรวจว่าทุก item อยู่ใน session นี้จริง ๆ
+    old_order_ids = {i.order_id for i in items}
+    orders_res = await db.execute(
+        select(Order).where(Order.id.in_(old_order_ids))
+    )
+    old_orders = {o.id: o for o in orders_res.scalars().all()}
+    for item in items:
+        parent = old_orders.get(item.order_id)
+        if not parent or parent.session_id != session_id:
+            raise HTTPException(status_code=400, detail="มีรายการที่ไม่ได้อยู่ใน session นี้")
+
     # สร้าง session ใหม่ (ใช้โต๊ะเดิม)
-    new_token   = create_qr_token(table_id=session.table_id)
+    new_token = create_qr_token(table_id=session.table_id)
     new_session = TableSession(
         table_id      = session.table_id,
         opened_by     = session.opened_by,
@@ -445,27 +461,27 @@ async def split_bill(body: dict, db: AsyncSession = Depends(get_db)):
 
     # สร้าง order ใหม่ใน session ใหม่
     new_order = Order(
-        session_id   = new_session.id,
-        status       = OrderStatus.CONFIRMED,
+        session_id = new_session.id,
+        status     = OrderStatus.CONFIRMED,
     )
     db.add(new_order)
     await db.flush()
 
-    # โอน items ไป order ใหม่
-    total = 0
+    # โอน items ไป order ใหม่ (ตอนนี้ modifiers โหลดมาแล้ว ปลอดภัย)
+    total = Decimal("0")
     for item in items:
         item.order_id = new_order.id
-        total += float(item.line_total or 0)
+        total += Decimal(str(item.line_total))
 
     new_order.subtotal = total
     new_order.total    = total
 
     return {
-        "message":         "แยกบิลสำเร็จ",
-        "new_session_id":  new_session.id,
-        "new_qr_token":    new_token,
-        "items_moved":     len(items),
-        "split_total":     total,
+        "message":        "แยกบิลสำเร็จ",
+        "new_session_id": new_session.id,
+        "new_qr_token":   new_token,
+        "items_moved":    len(items),
+        "split_total":    float(total),
     }
 
 
