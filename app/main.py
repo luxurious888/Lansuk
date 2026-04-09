@@ -94,3 +94,18 @@ async def health():
 
 # ── Static mount ท้ายสุด ─────────────────────────────────────────────────────
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
+
+@app.get("/debug/env")
+async def debug_env():
+    """Debug: ดู db path จริง"""
+    import os
+    from app.config import settings
+    return {
+        "settings_DATABASE_URL": settings.DATABASE_URL,
+        "env_DATABASE_URL": os.getenv("DATABASE_URL", "NOT_SET"),
+        "cwd": os.getcwd(),
+        "data_dir_exists": os.path.exists("/data"),
+        "data_dir_writable": os.access("/data", os.W_OK) if os.path.exists("/data") else False,
+        "data_files": os.listdir("/data") if os.path.exists("/data") else [],
+    }
+
