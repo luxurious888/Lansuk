@@ -380,87 +380,6 @@ function printQR(u){
   h+='<h2>ลานสุข</h2><p>สแกนเพื่อสั่งอาหาร</p>';
   h+='<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(u)+'">';
   h+='<p>'+u+'</p><button onclick="window.print()">Print</button>
-<div class="mo" id="mo-cancel">
-  <div class="md" style="max-width:400px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="fd" style="font-size:17px;color:var(--red)">❌ ยกเลิกรายการ</div>
-      <button onclick="closeModal('mo-cancel')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
-    </div>
-    <div style="background:var(--warm);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px">
-      <div style="font-weight:600" id="cn-name">—</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">เหลืออยู่: <span id="cn-rem">—</span> รายการ</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div>
-        <label class="lbl">จำนวนที่ต้องการยกเลิก</label>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button onclick="cnQty(-1)" style="width:36px;height:36px;border-radius:50%;background:var(--red);color:white;border:none;cursor:pointer;font-size:18px">-</button>
-          <input id="cn-qty" type="number" min="1" value="1" class="inp" style="text-align:center;font-family:Mitr,sans-serif;font-size:16px">
-          <button onclick="cnQty(1)" style="width:36px;height:36px;border-radius:50%;background:var(--leaf);color:white;border:none;cursor:pointer;font-size:18px">+</button>
-        </div>
-      </div>
-      <div>
-        <label class="lbl">เหตุผล <span style="color:var(--red)">*</span></label>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
-          <button onclick="cnReason('ลูกค้ายกเลิก')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ลูกค้ายกเลิก</button>
-          <button onclick="cnReason('สั่งผิด')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">สั่งผิด</button>
-          <button onclick="cnReason('ของหมด')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ของหมด</button>
-          <button onclick="cnReason('ทำไม่ทัน')" style="background:white;border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:11px;cursor:pointer">ทำไม่ทัน</button>
-        </div>
-        <input id="cn-reason" class="inp" placeholder="พิมพ์เหตุผล หรือกดปุ่มด้านบน">
-      </div>
-      <div>
-        <label class="lbl">ชื่อผู้ยกเลิก</label>
-        <input id="cn-by" class="inp" placeholder="เช่น แก้ว">
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="bs" onclick="closeModal('mo-cancel')" style="flex:1">ยกเลิก</button>
-        <button class="bp" style="background:var(--red);flex:1" onclick="submitCancel()">❌ ยืนยัน</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-var CN_ID=null,CN_MAX=0,CN_SID=null;
-function openCancelBtn(btn){
-  var id=parseInt(btn.getAttribute('data-cid'));
-  var qty=parseInt(btn.getAttribute('data-cqty'));
-  var can=parseInt(btn.getAttribute('data-ccan'));
-  var nm=decodeURIComponent(btn.getAttribute('data-cnm'));
-  var sid=parseInt(btn.getAttribute('data-csid'));
-  CN_ID=id;CN_MAX=qty-can;CN_SID=sid;
-  document.getElementById('cn-name').textContent=nm;
-  document.getElementById('cn-rem').textContent=CN_MAX;
-  document.getElementById('cn-qty').value=1;
-  document.getElementById('cn-qty').max=CN_MAX;
-  document.getElementById('cn-reason').value='';
-  document.getElementById('cn-by').value=localStorage.getItem('lastCancelBy')||'';
-  closeModal('mo-bill');
-  openModal('mo-cancel');
-}
-function cnQty(d){var el=document.getElementById('cn-qty');var v=parseInt(el.value||1)+d;if(v<1)v=1;if(v>CN_MAX)v=CN_MAX;el.value=v;}
-function cnReason(r){document.getElementById('cn-reason').value=r;}
-async function submitCancel(){
-  var qty=parseInt(document.getElementById('cn-qty').value||0);
-  var reason=document.getElementById('cn-reason').value.trim();
-  var by=document.getElementById('cn-by').value.trim();
-  if(qty<=0||qty>CN_MAX){showToast('จำนวนไม่ถูกต้อง');return;}
-  if(!reason){showToast('กรุณาระบุเหตุผล');return;}
-  if(!by){showToast('กรุณาระบุชื่อผู้ยกเลิก');return;}
-  localStorage.setItem('lastCancelBy',by);
-  try{
-    var r=await fetch(API+'/api/pos/order-items/'+CN_ID+'/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({qty:qty,reason:reason,cancelled_by:by})});
-    var d=await r.json();
-    if(!r.ok){showToast(d.detail||'เกิดข้อผิดพลาด');return;}
-    closeModal('mo-cancel');
-    await fB();renderBills();
-    viewBill(CN_SID);
-    showToast('✅ ยกเลิก '+qty+' รายการ');
-  }catch(e){showToast('เกิดข้อผิดพลาด');}
-}
-</script>
-
 </body></html>';
   w.document.write(h);w.document.close();setTimeout(function(){w.print();},500);
 }
@@ -877,6 +796,7 @@ setInterval(function(){fT().then(function(){renderFloor();});},30000);
 updClk();init();
 </script>
 
+
 <div class="mo" id="mo-cancel">
   <div class="md" style="max-width:400px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -921,12 +841,12 @@ updClk();init();
 <script>
 var CN_ID=null,CN_MAX=0,CN_SID=null;
 function openCancelBtn(btn){
-  var id=parseInt(btn.getAttribute('data-cid'));
+  CN_ID=parseInt(btn.getAttribute('data-cid'));
   var qty=parseInt(btn.getAttribute('data-cqty'));
   var can=parseInt(btn.getAttribute('data-ccan'));
   var nm=decodeURIComponent(btn.getAttribute('data-cnm'));
-  var sid=parseInt(btn.getAttribute('data-csid'));
-  CN_ID=id;CN_MAX=qty-can;CN_SID=sid;
+  CN_SID=parseInt(btn.getAttribute('data-csid'));
+  CN_MAX=qty-can;
   document.getElementById('cn-name').textContent=nm;
   document.getElementById('cn-rem').textContent=CN_MAX;
   document.getElementById('cn-qty').value=1;
