@@ -239,12 +239,15 @@ async def list_bills(
     sessions = result.scalars().all()
     bills = []
     for s in sessions:
-        total = sum(
-            float(i.unit_price or 0) * int(i.quantity or 1)
-            for o in s.orders
-            for i in o.items
-        )
-        items_count = sum(len(o.items) for o in s.orders)
+        total = 0.0
+        items_count = 0
+        for o in s.orders:
+            for i in o.items:
+                eff_qty = int(i.quantity or 0) - int(i.cancelled_qty or 0)
+                if eff_qty <= 0:
+                    continue
+                total += float(i.unit_price or 0) * eff_qty
+                items_count += 1
         # ข้าม merged sessions ที่ถูกโอน orders ออกหมดแล้ว
         if items_count == 0 and s.is_paid:
             continue
