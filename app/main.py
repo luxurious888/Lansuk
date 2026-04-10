@@ -9,6 +9,50 @@ from app.database import init_db
 from app.routers import admin, attendance, orders, payroll, pos, reports, staff, telegram
 
 
+
+
+async def _register_telegram_webhook():
+    """ลงทะเบียน Telegram webhook อัตโนมัติตอน startup"""
+    import httpx
+    from app.config import settings
+
+    token = settings.TELEGRAM_BOT_TOKEN
+    secret = settings.TELEGRAM_WEBHOOK_SECRET
+
+    if not token:
+        print("[telegram] ไม่มี BOT_TOKEN — ข้าม webhook registration")
+        return
+
+    # ดึง URL จาก env var RAILWAY_PUBLIC_DOMAIN หรือใช้ default
+    import os
+    domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+    if not domain:
+        # ลองใช้ RAILWAY_STATIC_URL
+        domain = os.getenv("RAILWAY_STATIC_URL", "").replace("https://", "").replace("http://", "")
+    if not domain:
+        print("[telegram] ไม่เจอ RAILWAY_PUBLIC_DOMAIN — ข้าม webhook registration")
+        print("[telegram] ตั้ง webhook ด้วยมือ: curl Telegram API setWebhook")
+        return
+
+    webhook_url = f"https://{domain}/api/telegram/webhook"
+    api_url = f"https://api.telegram.org/bot{token}/setWebhook"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(api_url, json={
+                "url": webhook_url,
+                "secret_token": secret if secret != "change-me" else None,
+                "allowed_updates": ["message", "callback_query"],
+            })
+            data = resp.json()
+            if data.get("ok"):
+                print(f"[telegram] ✅ Webhook registered: {webhook_url}")
+            else:
+                print(f"[telegram] ❌ Webhook failed: {data}")
+    except Exception as e:
+        print(f"[telegram] ❌ Error: {e}")
+
+
 async def _run_migrations():
     """รัน ALTER TABLE ทุกครั้งที่ app start — idempotent"""
     import aiosqlite, re
@@ -63,6 +107,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     # auto-migrate (เพิ่ม column ที่ขาด)
     await _run_migrations()
+    await _register_telegram_webhook()
     yield
 
 
